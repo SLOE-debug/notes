@@ -1,0 +1,119 @@
+1.Startup类
+	理论：Startup 类可以用来定义请求处理管道和配置应用程序需要的服务
+
+	Startup 类必须是公开的，且必须包含以下两个方法：
+		ConfigureServices：方法用于定义应用程序所需要的服务，例如 ASP.NET Core MVC 、 Entity Framework Core 和 Identity 等等
+		
+		Configure：用于定义请求管道中的中间件
+		
+2.中间件
+	中间件：说白了就是个 [流水线] ,如果一个物品满足 [流水线1号窗口] 的条件时,那么流水线短路进入 [1号窗] ,如果不满足则继续向下执行
+						   ||					           ||									  ||
+					    请求管道			         某个中间件							       该中间件
+			
+	Run方法：
+		app.Run() 方法允许我们传入另一个方法，我们可以用它来处理每一个单独的响应。Run() 方法不经常见，它是调用中间件的终端
+		在 app.Run() 方法中注册的中间件永远不会有机会调用另一个中间件，它只会接收请求，然后必须产生某种响应
+		app.Run() 方法中注册的中间件还可以访问 Response，例如使用 Response 对象返回一个字符串
+		如果在 app.Run() 方法之后注册另一个中间件，那么注册的那个中间件永远不会被调用，因为 Run() 方法是注册中间件的 终端，在它之后，永远不会调用下一个中间件
+	
+	每个应用默认都会使用 context.Response.WriteAsync：
+		app.Run(async (context) =>
+		{
+			await context.Response.WriteAsync("Hello World!");	--中间件
+		});
+		
+    UseDeveloperExceptionPage：
+		他不做任何响应,只关心后面的中间件是否出现异常,如果出现异常那么将抛出错误信息以及位置,
+		如果将他注释掉,那么将抛出服务器500错误
+	
+	UseStaticFiles：
+		除非我们覆盖选项并传递一些不同的配置参数，否则静态文件中间件执行的操作是针对给定的请求查看请求路径
+		然后将此请求路径与文件系统以及文件系统上的内容进行比较
+	
+	UseDefaultFiles：
+		指定默认起始页,要特别注意顺序, UseDefaultFiles 必须在 UseStaticFiles 之前,否则会提示出错
+		他会根据这些名字查找默认文件 [index.html、index.htm、default.html、default.html] ,不区分大小写
+		如果没有找到上述文件,那么不好意思404错误
+	
+	UseFileServer：
+		该中间件是对 UseStaticFiles 和 UseDefaultFiles 的封装,因为同时使用 UseStaticFiles 和 UseDefaultFiles ,很容易搞混
+		只使用该中间件的结果和 UseStaticFiles、UseDefaultFiles 两个混合起来用是一样的
+	
+	UseMvcWithDefaultRoute：
+		MVC路由中间件,他给了我们一个默认的路由规则,允许我们访问 HomeController
+		该形式会调用UseMvc,通过硬编码设定默认路由,
+		格式：{controller=Home}/{action=Index}/{id?}
+		那么这个路由格式是写死的,如果想要设置固定格式路由,那么请使用 UseMvc();
+		
+	UseMvc:
+		该中间件需要传入一个委托,可以自己写一个方法
+		private void ConfigureRoute(IRouteBuilder routeBuilder)
+		{
+            //Home/Index 
+            routeBuilder.MapRoute("Default", "{controller}/{action}/{id?}");
+        }
+		在方法中可以配置路由,然后调用中间件 UseMvc(ConfigureRoute) 注册路由
+		
+3.静态文件
+	wwwroot：如果没有额外的配置,那么该文件夹将是应用程序中唯一可以存放静态文件的位置
+	
+	默认页面：
+		非开发模式：IIS默认文件列表设置
+	
+		开发模式：
+			采用中间件 UseDefaultFiles
+			如果是MVC开发：
+				用 UseMvcWithDefaultRoute 或者 UseMvc
+	
+4.MVC的开发
+	理论：Net Core 2.1里面集成了MVC的程序集只需要注册相应的中间件和服务即可
+	
+	将项目改为MVC开发步骤：
+		1.创建Controller文件夹
+		2.创建HomeController控制器
+		3.添加index方法
+		4.注册中间件 UseMvcWithDefaultRoute
+		5.注册MVC服务 services.AddMvc()
+	
+		运行即可看到页面...
+		
+5.属性路由
+	[Route("[controller]")]
+    public class AboutController
+    {
+        public AboutController()
+        {
+        }
+
+        [Route("")]				--此处留空的话那么当前Action为默认页面
+        public string Phone()
+        {
+            return "+10086"; 
+        }  
+
+        [Route("[action]")]
+        public string Country()
+        {
+            return "中国"; 
+        }
+    }
+	
+6.ActionResult
+	子类：
+		ContentResult			返回一串字符串
+		FileContentResult		返回文件的内容
+		FilePathResult			返回路径文件的内容
+		FileStreamResult		返回流文件的内容
+		EmptyResult				返回空
+		JavaScriptResult		返回一段 JavaScript 代码
+		JsonResult				返回 JSON 格式的数据
+		RedirectToResult		重定向到某个 URL
+		HttpUnauthorizedResult	返回 403 未授权状态码
+		RedirectToRouteResult	重定向到不同的控制器或方法
+		ViewResult				从视图引擎中返回一个响应
+		PartialViewResult		从视图引擎中返回一个响应
+		
+7.EntityFrameWork
+	注册服务：
+		

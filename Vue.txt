@@ -1,0 +1,98 @@
+1.去除导航路径中的#号(Webpack格式下)
+	设置Router下的index.js文件
+		export default new Router({
+		  mode:'history',
+		  routes: [ ... ]
+		})
+	
+	设置config下index.js文件
+		build: {
+		env: require('./prod.env'),
+		// Template for index.html
+		index: path.resolve(__dirname, '../dist/index.html'),
+
+		// Paths
+		assetsRoot: path.resolve(__dirname, '../dist'),
+		assetsSubDirectory: 'static',
+		assetsPublicPath: '/',
+		productionSourceMap: true,
+		...
+		
+2.Eslint严格语法取消
+	注释build下的wepack-base.conf.js中
+		 module: {
+			rules: [
+			  // ...(config.dev.useEslint ? [createLintingRule()] : []),
+			  {
+			  
+3.细节点
+	data数据：
+		数组下标更新：数组通过index更改其中的数据时,不会触发页面更新
+			解决方案：
+				方案一：利用Vue.set(object,key,value)
+					对象：Vue.set(vm.obj,"sex","man")
+					
+				方案二：利用this.$set(this.object,key,value)
+					对象：this.$set(this.obj,"sex","man")；
+					数组：this.$set(this.arr,index,newVal)；
+					
+				方案三：利用Object.assign({},this.obj)
+					this.obj = Object.assign({},this.obj,{"sex","man"})；
+					
+				如果你只是为了显示数据,不要双向绑定的话,那么可以直接
+					this.数组.splice(0,0);
+					
+		传参取参：
+			传参用router,取参用route
+			
+			传参:
+				this.$router.push({name:'页面名称',query:{键:值}})		--该方式刷新页面不会丢失参数,参数url拼接显示(get)
+				this.$router.push({name:'页面名称',params:{键:值}})		--该方式刷新页面丢失参数,参数url不拼接(post)
+			
+			取参:
+				this.$route.(params或者query).参数名
+					
+		JS对象加新的属性值页面不渲染：
+			解决方案：
+				Vue.set( target, key, value )
+				target：要更改的数据源(可以是对象或者数组)
+				key：要更改的具体数据
+				value ：重新赋的值
+				示例：
+					this.$set(this.Store, "MealCombo", new Array())		--this.$set 是对Vue.set的封装,一般在组件中使用
+				
+	
+	Axios请求:
+		Get请求参数params：
+			该参数是在 url 中的参数,以 name=a&age=18 形式显示,一般Get请求时会用到,没什么多说的
+		
+		Post请求参数data：
+			Post请求时参数取不到,接口报错,因为分为好多种情况,有以下几种解决方案
+			
+			解决方案：
+				1.From Body形式：
+					方法签名：
+						[httpPost]
+						public bool SaveData([FromBody] string Name,[FromBody] string Des);
+						
+					Axios属性ContentType属性值：
+						axios.defaults.headers.post["Content-Type"] = "application/json";
+					
+					Axios下的data:JSON.stringify({ NAME: "Jim",DES:"备注" })
+						一个参数：data:{'':'Jim'}			--注意：键留空
+						数组：data:JSON.stringify(arr);		--另一边方法签名也是 string[] arr
+						实体集合：data:JSON.stringify(ls);	--List<dynamic> ls
+					
+				2.C#动态类型形式：
+					方法签名：
+						[httpPost]
+						public bool SaveData(dynamic User);
+					
+					Content-Type：不需要指定
+					
+					data：直接传Json对象即可
+				
+				还有另一种：var qs = require('qs'),qs是把一个Json对象转换成 application/x-www-form-urlencoded 形式的		--自行百度
+				
+Html采坑记
+	1.无论如何不能将元素以fiexd形式定位到页面：页面定位fiexd不能使用,那么他的父系或者祖先系不能有transform属性

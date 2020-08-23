@@ -1,0 +1,172 @@
+1.Docker和VM的区别
+	VM是分钟级别的,而docker是秒级的
+	
+	OS：
+		docker使用的是宿主机上的OS,共用一个操作系统,并不需要namespace以及CGroups硬件虚拟化
+		VM每一个系统上都有独立的OS系统
+		
+	images：镜像,像是C#里的类,可以通过镜像创建容器实例
+		images里如同千层饼,有些镜像里面还有裹着的一层镜像
+		
+	容器：相当于集装箱,即容器实例,来自于image模板创建出的实例
+	
+	docker有一个daemon,即docker守卫来处理你的命令
+	
+	可以把docker看成一个简易版的linux环境
+	
+注：当参数为ID时,124abb9e8c9a可俭省为124abb
+2.Docker命令
+	docker images：查看当前所以镜像
+			arg...
+				-a：查看当前所有镜像(包含中间镜像)
+				-q：只显示当前镜像的ID
+				--digests：显示镜像的摘要信息
+				--no-trunc：显示镜像的完整信息
+			
+	docker search 镜像名称：在DockerHub上查找镜像
+		arg...
+			-s 数字：查看点赞数超过多少的镜像
+			--no-trunc：显示镜像的完整信息
+			--automated：只列出会自动更新镜像
+			
+	docker pull 镜像名称:tag：在DockerHub上拉取指定版本的镜像		--如果tag被省略了那么等价于：镜像名称:latest,即拉取最新版
+	
+	docker rmi -f 镜像名称:tag：删除指定版本的镜像						--如果tag被省略了那么等价于：镜像名称:latest,即删除最新版
+		删除多个：docker rmi -f 镜像名称:tag 镜像名称:tag
+		
+		删除全部(清库)：docker rmi -f $(docker images -qa)
+		
+	docker run 镜像ID或者镜像名称：通过一个镜像创建一个容器实例
+		arg...
+			-i：以交互模式运行容器,通常与-t同时使用				--该参数可以理解docker要与运行后的容器进行交互
+			-t：为容器重新分配一个伪输入终端,通常与-i同时使用	--该参数为运行成功后在当前的终端中弹出与运行后容器的交互终端
+			-P：随机端口映射
+			-p：指定端口映射(外部暴露端口:docker内的端口)
+			--name：指定运行后的容器的名称,省略则会随机命名
+			-d：后台运行容器		
+				--此处涉及到docker机制,如果运行的容器没有前台交互,或者这不是一个挂起的命令(如node服务器的监听端口),那么该容器会立即自杀,因为他觉得自己没有任何事情可做
+					解决方案：将你要运行的程序以前台进程的形式运行
+			
+		退出容器：
+			exit：容器停止并退出
+			Ctrl+P+Q：容器不停止退出
+			
+		进入容器并以命令行交互：
+			docker exec -it 容器ID或者容器名称 bashShell	--该方式是在宿主机外直接以参数方式传入命令,并不会进入容器,如果将命令参数换成 bin/bash,那么效果如同另一种方式
+			
+			docker attach 容器ID或者容器名称				--该方式会进入容器内部进行操作
+			
+		启动容器：docker start 容器ID或者容器名称
+		
+		重启容器：docker restart 容器ID或者容器名称
+		
+		停止容器：docker stop 容器ID或者容器名称
+			强制停止：docker kill 容器ID或者容器名称
+		
+		删除停止后的容器：docker rm 容器ID或者容器名称
+			arg...
+				-f：对于没有停止的容器进行强制删除
+		
+		全部删除：
+			docker rm -f $(docker ps -qa)
+			
+			docker ps -a -q | xargs docker rm
+				xargs：xargs为Linux的动态参数他会把|前的命令结果集传递给xargs后的命令当做参数
+		
+		从容器中拷贝文件到宿主机器上：
+			docker cp 容器ID:容器内路径 宿主机路径
+			
+			反之：docker cp 宿主目录 容器ID:容器内路径
+			
+	提交容器的副本成为新的镜像：
+		docker commit -a="作者" -m="提交信息" 容器ID 提交的镜像名称：镜像前缀/镜像名:版本号
+	
+	docker logs 容器ID或者容器名称：查看指定容器的日志
+		arg...
+			-t：在日志前加上时间戳
+			-f：跟踪日志
+			--tail 数字：列出时间倒叙的N条日志
+	
+	docker top 容器ID或者容器名称：查看容器内运行的进程
+		
+	docker inspect 容器ID或者容器名称：查看容器内部细节
+	
+	docker ps：列出当前正在运行的容器
+		status列：
+			UP xxxx：正在运行
+		
+		arg...
+			-a：列出当前运行中的容器以及历史上运行过的容器
+			-l：列出上一次运行过的容器
+			-n Number：列出上N次运行过的容器
+			-q：只显示容器的ID
+			
+3.docker镜像
+	镜像是一个独立的、轻量级的可执行软件包,用来打包软件的运行环境和基于运行环境开发的软件,它包含了运行某个软件需要的所有内容
+	如：代码、运行时、库、环境变量、和配置文件
+	
+	UnionFS联合文件系统：
+		这是一种分层、轻量级并且高性能的文件系统,他支持对文件系统的修改作为一次提交来一层层的叠加,同时可以将不同目录挂载到同一虚拟文件系统下
+		Union文件系统是docker镜像的基础,镜像可以通过分层来进行继承,基于基础镜像(没有父镜像),可以制作各种系统的应用镜像
+		
+		特性：一次同时加载多个文件系统,但从外面来看,他就是一个文件系统,联合加载会把各层文件系统叠加起来,这样最终的文件系统会包含所有基层的文件和目录
+	
+	docker镜像为什么分层：因为共享资源,镜像中的每一层都可以共享,那么会有一个base镜像,该镜像可以构建任何镜像
+	
+	docker镜像都是只读的,当容器启动时,一个新的可写层被加载到镜像的顶部,这一层被称为容器层,容器层之下叫做镜像层
+	
+4.容器数据卷
+	数据卷的作用为,数据持久化以及数据的共享
+	特点：
+		容器之间共享或重用数据
+		卷中的更改可以直接生效
+		重启容器时,会再次跟宿主机拉取数据进行同步
+		
+	容器卷的添加
+		命令行模式：docker run -it -v 宿主机绝对目录:容器内目录 容器名		--该操作会在宿主机和容器中新建目录
+			arg...
+				容器内目录:ro：只读模式
+		
+		DockerFile模式：
+			FROM node
+			WORKDIR ./
+			copy . ./
+			VOLUME ["/DataContainer1","/DataContainer2"]
+			CMD echo "build success"
+			CMD ["npm","start"]
+			
+			docker build -t balabala/admin:1.0 .
+			
+			注：该模式的宿主机目录会默认生成在 /var/lib/docker/volumes/XXXXXXXXXXXX/_data
+			
+		容器之间共享容器卷：docker run -it --name="admin2" volumes-from 容器ID或者容器名称 镜像名称
+			数据卷的生命周期一直持续到没有容器使用它为止,也就是说admin2是从admin1继承过来的,及时admin1被删除,也不会影响到admin2读取数据卷
+		
+		注：如果容器卷出现cannot open directory .:Permission denied,在挂载目录后加 --privileged=true
+		
+5.DockerFile
+	新建目录并进入：mkdir 目录名 cd 目录名
+	
+	新建dockerfile文件：vim dockerfile
+	
+	Dockerfile内容：
+		FROM centos
+		ENV mypath /usr/local
+		WORKDIR $mypath
+		RUN yum -y install vim
+		RUN yum -y install net-tools
+		EXPOSE 80
+		CMD echo $mypath
+		CMD echo "SUCCESS------------OK"
+		CMD /bin/bash
+		
+		注：列出镜像的变更历史:docker history 镜像名
+		
+	ENTROYPOINT：指定一个容器启动时运行的命令，在docker run后面的参数会被追加到该命令的后面
+		例：
+			Dockerfile内容：ENTROYPOINT ["curl","-s","http://ip.cn"]
+			docker run 镜像名 -i
+			那么这条指令运行的等同于：ENTROYPOINT ["curl","-s","-i","http://ip.cn"]
+			
+	ONBUILD：被继承时在子镜像构建时触发的命令
+		例：ONBUILD RUN echo "father onbuild--------86"

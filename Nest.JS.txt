@@ -1,0 +1,532 @@
+1.基本命令
+	安装NestJS：cnpm i -g @nestjs/cli
+	
+	创建一个NestJS项目：nest new server
+	
+	创建一个子项目：nest g app 项目名
+	
+	创建一个数据库类库项目：nest g lib 类库名称
+		默认前缀是@app,建议修改为@libs
+	
+	创建一个模块：nest g mo(model缩写) -p admin(表示在哪个项目下) 模块名称
+	
+	创建一个Controller：nest g co(Controller缩写) -p admin(表示在哪个项目下) 控制器名称
+		
+	安装NestJS中的数据库访问包：
+		使用cnpm安装实例：cnpm install -save nestjs-typegoose @typegoose/typegoose
+		@typegoose/typegoose：定义类模板
+		
+		nestjs-typegoose：nest中用来操作实体类和数据库的工具
+			nestjs-mongoose-crud：nestjs提供的crud工具类可以简单快捷的进行增删查改
+			
+		@nestjs/swagger swagger-ui-express：接口文档
+		
+	安装配置mongoose：
+		安装MongoDB：https://www.mongodb.com/download-center/community?jmp=nav
+		
+		npm安装Mongoose：cnpm install --save mongoose -g
+		
+		文件配置：借鉴博客园博客 https://www.cnblogs.com/xiaozhaoboke/p/11479144.html
+	
+	启动项目：
+		在监视模式下运行(一般开发情况下都要加上这个)：nest start -w 项目名
+		
+2.实体类以及简单增删改
+	实体类放置位置：lib项目下-->Src-->models文件夹(没有建一个)-->实体名称.model.ts(例：user.model.ts)
+	
+	TypeScript类定义模板@typegoose/typegoose：
+		例：
+			import { ApiPropertyOptional } from '@nestjs/swagger';
+			import { prop, modelOptions } from '@typegoose/typegoose';
+			
+			@modelOptions({
+			  schemaOptions: {
+				timestamps: true,		--为类加上时间戳,创建时间和更改时间
+				toJSON: { virtuals: true },	--是否查询虚拟字段
+			  },
+			})
+			
+			@Component({})			--指定以typescript的形式修饰Vue组件
+			export class User {		--导出类
+			  @ApiPropertyOptional({ description: '用户名', example: '张三' })		--Api接口文档注解字段
+			  @prop(				--修饰字段为属性,并定义数据库表中的字段
+				select:false,		--该属性表示除非加select username才可以获取到该列,否则普通的查询语句并不能查询到该列
+				get(val) {
+				  return val;
+				},
+				set(val) {
+				  return val ? hashSync(val) : val;			--散列加密,需安装bcryptjs和@types/bcryptjs两个包
+				},
+			  )				
+			  username: string;
+			  
+			  @prop({ref:'Course'})					--指定该属性关联的类
+			  course:Ref<Course>					
+			  
+			  @arrayProp({ itemsRef: 'Episode' })	--定义数据库字段Episode的数组类型,以字符串形式避免js循环依赖
+			  episodes: Ref<Episode>[];				--Ref<T>,制定属性类型
+			  
+			  
+			  @arrayProp({							--虚拟字段(该字段并非是数据库表中的字段)
+				ref: 'Episode',						--参考的是哪个模型
+				localField: '_id',					--在当前类中用用哪个键来关联
+				foreignField: 'course',				--在Episode中用哪个键当做外键来关联
+			  })
+			  episodes: Ref<Course>[];
+			}
+
+	连接Mongo数据库：
+		import { TypegooseModule } from 'nestjs-typegoose';
+		
+		TypegooseModule.forRoot('mongodb://localhost/nodejs-demo', {
+		  useNewUrlParser: true,
+		  useUnifiedTopology: true,
+		  useCreateIndex: true,
+		  useFindAndModify: false,
+		}),
+
+	快速创建Crud接口：
+		import {Crud} from 'nestjs-typegoose-crud';
+		import { User } from '@libs/db/models/user.model';
+		
+		export class RegisterDto {					--定义dto模型
+		  @ApiProperty({ description: '用户名' })
+		  username: String;
+		  @ApiProperty({ description: '密码' })
+		  password: String;
+		}
+		
+		@Crud({
+		  model: User,
+		  routes:{			--该属性表示启用或禁用哪些接口
+			create:false,
+			update:false,
+			delete:false
+		  }
+		})
+		@Controller('users')
+		export class UsersController {
+		  constructor(@InjectModel(User) private readonly model: ReturnModelType<typeof User>) {}		--注入实体类User,并且是私有的(如果没有修饰符,则该参数只能在构造函数中使用),只读的,并指定model类型(该操作可给予model类的提示,可根据情况省略)
+		
+		  @Post('register')
+		  @ApiOperation({ summary: '注册' })			--该操作为Api文档方法后注解
+		  async register(@Body() dto: RegisterDto) {
+			return dto;
+		  }
+		}
+		
+	接口文档：@nestjs/swagger swagger-ui-express
+		在项目的main方法中使用代码创建Api文档
+			import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+			
+			const options = new DocumentBuilder()
+				.setTitle('balabala-后台API')
+				.setDescription('供后台界面调用的服务端API')
+				.setVersion('1.0')
+				.build();
+			const document = SwaggerModule.createDocument(app, options);
+			SwaggerModule.setup('api-docs', app, document);
+			
+		控制器上方添加ApiTags方法,将Api方法归类
+			@ApiTags('用户')
+			export class UsersController {
+			  constructor(@InjectModel(User) private readonly model) {
+			  }
+			}
+	
+3.Mongo数据库语句
+	db：查看当前操作的库
+	
+	use 数据库名：使用某个数据库
+	
+	show： 
+		collections：查看库里面的表
+	    dbs:查看所有的库
+	
+4.搭建以ts为基础的Vue3.0项目
+	命令行：
+		vue create 项目名
+		cd 项目名
+		vue add element 	Fully import No Zh-Cn
+		vue add router 		No
+		vue add typescript 	Yes Yes Yes No
+	
+	标记script为ts脚本：<script lang="ts">
+	
+	element-ui的菜单列表：
+		<el-menu mode="vertical" :default-active="$router.path" router>
+			--mode="Vertical"：垂直的
+			--:default-active：高亮选择项
+			--router：指定该菜单为路由菜单,子菜单中每一项的index为路由直接跳转的连接
+	
+        <el-submenu
+          v-for="(item, index) in menu.items"
+          :index="index + 1"
+          :key="`menu-item-${index}`"
+        >
+          <template slot="title">{{item.title}}</template>
+          <el-menu-item
+            v-for="(subitem, subIndex) in item.items"
+            :key="`menu-item-${index}-${subIndex}`"
+            :index="subitem.path"
+          >{{ subitem.title }}</el-menu-item>
+        </el-submenu>
+      </el-menu>
+	 
+	参数传递：
+		路由：
+			{ name: "courses-edit", path: "/courses/edit/:id", component: CourseEdit , props:true },
+			--props为是否作为属性传入
+		
+		Vue：
+			export default class CourseEdit extends Vue{
+				@Prop(String) id:string
+				...
+			}
+	
+	Vue的路由渲染：
+		路由渲染的key是基于组件名的,可以指定key基于哪种渲染：<router-view :key="$route.path"><router-view>
+		
+	属性方法：get 方法名称(){ ...方法体 }
+	
+	AVueCRUD模板：
+		配置AVue：
+			组件官网：https://avuejs.com/
+		
+			import Vue from "vue";
+			import Avue from "@smallwei/avue";
+			import "@smallwei/avue/lib/index.css";
+			Vue.use(Avue);
+		
+		注：Avue在修改时会有一个$index属性，会触发数据库异常,需要删除它：const data = JSON.parse(JSON.stringify(row));delete data.$index;
+		
+		文件上传：
+			const http = axios.create({
+			  baseURL: "http://localhost:3000",
+			});
+			配置main.ts中的属性Vue.prototype.$httpajax = http;
+			因为AVue是使用httpajax来进行上传的,然而Avue中没有标注
+			
+			后端接口：
+			  @Post('upload')
+			  @UseInterceptors(FileInterceptor('file'))
+			  @UseInterceptors拦截器           
+			  FileInterceptor拦截前端请求中叫做file的字段	--该方法需导入nest包import { FileInterceptor } from '@nestjs/platform-express';
+			  async upload(@uploadfile('file') file) {		--也可以在括号中定义@Req() req来获得前端请求,从req.file获取字段值
+				return {url:`http://localhost:3000/uploads/${file.filename}`};
+			  }
+			  
+			  接口路由的.module.ts文件中,修饰上传文件指定目录MulterModule.register({ dest: 'uploads' }),配置完会自动生成uploads文件夹
+		
+	SwaggerAPI：
+		mongodb查询条件：
+			"where":{"name":"张三"}
+			"limit":10
+			"sort":{"_id":-1}		-1倒序,1正序
+			"$regex":"a"			--正则表达式,同SqlServer like
+			populate:'Episode'		--关联表
+			
+	后端main.ts配置：
+		import { NestExpressApplication } from '@nestjs/platform-express';		
+		const app = await NestFactory.create<NestExpressApplication>(AppModule);	--指定nest基于哪个框架
+		
+		允许跨域：app.enableCors();
+		
+		静态文件托管：
+			app.useStaticAssets('uploads', {
+				prefix: '/uploads',
+			});
+		
+		OTS(OSS)存储：
+			将上传接口的MulterModule.register配置改为：
+				MulterModule.register({
+				  storage: {
+					config: {
+					  region: 'oss-cn-beijing',				--存储节点
+					  accessKeyId: '<accessKeyId>',			--
+					  accessKeySecret: '<accessKeySecret>',
+					  bucket: '<bucket>',					--存储空间名称
+					},
+				  },
+				}),
+			
+			将上传接口返回值改为：return file
+			
+	@nestjs/config加载环境变量：
+		nest g lib common创建公共项目
+		
+		common.module中importConfigModule
+			imports:[
+				ConfigModule.forRoot({
+					isGlobal:true			--表示ConfigModule在任意位置都可以使用
+				}),
+				DbModule,
+			]
+			将admin项目中app.module.ts的数据库引用(原DbModule)改为CommonModule
+			
+			异步注册OSS：
+				MulterModule.registerAsync({
+					returm{
+						storage:原storage
+					}
+				})
+			
+			注：因为ConfigModule和DbModule是并行加载的,所以在DbModule中forRoot时,process.env.DB可能是空的,所以要用到forRootAsync
+			TypegooseModule.forRootAsync({
+			  useFactory() {
+				return {
+				  uri: process.env.DB,
+				  useNewUrlParser: true,
+				  useUnifiedTopology: true,
+				  useCreateIndex: true,
+				  useFindAndModify: false,
+				};
+			  },
+			}),
+			涉及到process.env的,应当全部用Async方法异步取
+		
+		.env文件：
+			该文件供admin、server使用
+			.env文件内容：
+				DB=mongodb://localhost/nodejs-demo
+				SERVER_PORT=3008
+				ADMIN_PORT=3000
+				
+			注：在.gitignore文件中：写入.env标注该文件并不需要上传到git仓库
+		
+		example范例文件：该文件命名格式为.env.example,标注.env文件里都有一些什么属性
+			DB=mongodb://localhost/nodejs-demo
+			SERVER_PORT=3008
+			ADMIN_PORT=3009
+
+			# 请自行注册阿里云
+			OSS_REGION=oss-cn-beijing
+			OSS_ACCESS_KEY_ID=
+			OSS_ACCESS_KEY_SECRET=
+			OSS_BUCKET=onefullstack
+	
+	Vue使用环境变量设置接口地址：在Vue项目下创建.env、.env.local文件,VUE_APP_API_URL=http://localhost:3000
+		注：只有Vue_APP开头的属性才会被process.env收录
+	
+5.前端技术选型：Nuxt、Vuetitf与SEO：
+	为了解决Vue项目F12查看到的代码是Index.html的代码,而不是链接页面的代码,无法进行百度爬虫SEO,所以采用Nuxt.js进行渲染页面
+	
+	nuxt:
+		该框架从往常的先渲染在请求数据,变成了先请求数据再渲染
+		单页面数据模式,切换页面并不会造成过多的加载
+	
+	创建nuxt项目：npx create-nuxt-app 文件夹名称
+		Choose programming language:TypeScript
+		Choose the package manager:Npm
+		Choose UI framework:Vuetify/js
+		Choose custom server framework:None
+		Choose the runtime for TypeScript:Default
+		Choose Nuxt.js modules:3个全选
+		Choose linting tools:ESLint,Prettier
+		Choose test framework:None
+		Choose rendering mode:Universal(SSR)
+		Choose development tools:jsconfig.json
+		
+	@nuxtjs/axios对axios的封装：可直接$get()获取res.data
+	
+	asyncData方法：
+		在TS支持下该方法应写在描述VUE的Component修饰器中：
+			@Component({
+			  asyncData: async ({ $axios }) => {
+				const courses = await $axios.$get('courses')
+				console.log(courses)
+				return {
+				  courses
+				}
+			  }
+			})
+			注：如果asyncData报错No overload matches this call,应当创建*.d.ts文件(该文件不同注册,因为ts会自动注册该文件)声明该方法
+				*.d.ts
+					import Vue from 'vue'
+					declare module 'vue/types/options' {
+					  interface ComponentOptions<V extends Vue> {
+						asyncData?(ctx: any): Promise<object | void> | object | void
+					  }
+					}
+
+	在nuxt中创建任意字符串可以匹配到的路由：以_开始,例：_id.vue
+	
+	读取视频文件：
+		在$axios.$get()中想要获取定义的虚拟属性在其中传参$axios.$get(`courses/${id}`,{params:{query:{populate:'episodes'}}})
+		
+		HTML：
+			<v-select
+			  v-model="currentIndex"
+			  :items="course.episodes.map((m, i) => ({ text: m.name, value: i }))"
+			></v-select>
+			<video width="100%" height="700px" :src="episode.file" controls></video>	episode.file同等于episode().file
+		
+		Vue：
+			currentIndex = 0
+			course = {
+				episodes: []
+			}
+			get episode() {
+				return this.course.episodes[this.currentIndex]
+			}
+
+	css以及标签属性:
+		class:
+			pa-3:表示所有的内边距等于3*4px
+			
+		v-col:
+			md="3":表示一个col占几列
+			
+	TypeScript注意事项:
+		给一个类中的属性赋初始值并且需要指定类型时：props:{source:{type:String,default:''}}
+
+	.env配置API_URL接口：
+		在.env中写入：API_URL=http://localhost:3009
+		在nuxt.config.js中顶部导入dotenv
+			import dotenv from "dotenv";
+			dotenv.config()
+	
+	passport登录以及JWT效验
+		包：npm install --save @nestjs/passport passport passport-local passport-jwt @nestjs/jwt
+		
+		提示包：npm install --save @types/passport @types/passport-jwt @types/passport-local
+		
+		创建strategy(策略)文件：命名规范:local(名称).strategy.ts
+			import { Strategy, IStrategyOptions } from 'passport-local';
+			import { PassportStrategy } from '@nestjs/passport';
+			import { InjectModel } from 'nestjs-typegoose';
+			import { User } from '@libs/db/models/user.model';
+			import { ReturnModelType } from '@typegoose/typegoose';
+			import { BadRequestException } from '@nestjs/common';
+			import { compareSync } from 'bcryptjs';
+
+			export class LocalStrategy extends PassportStrategy(Strategy,'local') {				--使用passport-local策略,并指定该策略为local
+			  constructor(
+				@InjectModel(User) private readonly userModel: ReturnModelType<typeof User>,
+			  ) {
+				super({							--该方法指定从前端接口获取的用户名和用户密码
+				  usernameField: 'username',
+				  passwordField: 'userpassword',
+				} as IStrategyOptions);
+			  }
+
+			  async validate(username: string, password: string) {
+				const user = await this.userModel
+				  .findOne({ username })
+				  .select('+userpassword');		--该方法将select为false的属性加到本次查询结果中
+				if (!user) {
+				  throw new BadRequestException('用户名不正确！');
+				}
+				if (!compareSync(password, user.userpassword)) {
+				  throw new BadRequestException('密码不正确！');
+				}
+				return user;
+			  }
+			}
+			
+		路由器：
+		  import { JwtService } from '@nestjs/jwt';
+		  
+		  constructor(
+			private jwtService: JwtService,
+			@InjectModel(User) private readonly model: ReturnModelType<typeof User>,
+		  ) {}
+		  
+		  @Post('login')
+		  @ApiOperation({ summary: '登录' })
+		  @UseGuards(AuthGuard('local'))
+		  async login(@Body() dto: User, @Req() req) {
+			return {
+				token: this.jwtService.sign(String(req.user._id)),
+			};
+		  }
+
+		  @Get('user')
+		  @ApiOperation({ summary: '个人信息' })
+		  @UseGuards(AuthGuard('jwt'))
+		  @ApiBearerAuth()				--表示该方法需要传ToKen
+		  async user(@Req() req) {
+			return req.user;
+		  }
+		  
+		注册JWTModel(在Common公共模块中注册)：
+		import { JwtModule } from '@nestjs/jwt';
+
+		@Global()
+		@Module({
+		  imports: [
+			ConfigModule.forRoot({
+			  isGlobal: true,
+			}),
+			JwtModule.registerAsync({
+			  useFactory() {
+				return {
+				  secret: process.env.SECRET,
+				};
+			  },
+			}),
+			DbModule,
+		  ],
+		  providers: [CommonService],
+		  exports: [CommonService, JwtModule],
+		})
+		  
+		路由器同目录下module文件：
+			import { PassportModule } from '@nestjs/passport';
+			import { LocalStrategy } from './local.strategy';
+
+			@Module({
+			  imports: [PassportModule],
+			  controllers: [AuthController],
+			  providers: [LocalStrategy,JwtStrategy],
+			})
+			
+		Jwt策略：
+			export class JwtStrategy extends PassportStrategy(Strategy) {
+			  constructor(
+				@InjectModel(User) private readonly userModel: ReturnModelType<typeof User>,
+			  ) {
+				super({
+				  jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),			--表示从请求头获取Bearer {ToKen值}
+				  secretOrKey: process.env.SECRET,
+				} as StrategyOptions);												--该方法走完会运行validate
+			  }
+
+			  async validate(id: string) {
+				return await this.userModel.findById(id);
+			  }
+			}
+		
+		配合auth.nuxtjs使用
+			yarn：安装@nuxtjs/auth
+			
+			nuxt.config.js配置：
+				modules:[
+					...
+					'@nuxtjs/auth'
+					...
+				],
+				auth:{
+					strategies: {
+					  local: {
+						endpoints: {
+						  login: { url: '/auth/login' },
+						  logout: { url: '/auth/logout' },
+						  user: { url: '/auth/user', propertyName:false }		--propertyName:false指的是返回的是user整个对象,而不是一个键
+						}
+					  }
+					}
+				}
+			
+			async login(){
+			  await this.$auth.loginWith('local', {	--local为使用本地
+				data: this.loginModel	--对象内容{username:"",userpassword:""},要和后端的strategy对应
+			  })
+			}
+		
+	Delete `未知符号` prettier/prettier解决方案：.prettierrc文件中写入,endOfLine:"auto"
+	
+6.ffmpeg推流直播
+	依赖包：
+		npm install ffmpeg
+		

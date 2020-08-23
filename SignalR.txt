@@ -1,0 +1,152 @@
+理论： SignalR是.Net实现实时通讯的一个新的程序库,其中包括这些API:连接管理（例如，连接和断开连接的事件）、对连接分组、和访问功能授权。
+	   SignalR会自动地使用websocket通信(只要条件允许),条件不满足的时候也会自动使用其他旧的传输方式
+	   
+SignalR决定使用具体哪种通信方式：
+	1.如果浏览器<=Internet Explorer 8,用长轮询的方式
+	2.如果配置中指定了使用jsonp,则会使用长轮询的方式
+	3.如何需要创建跨域连接,将会如使用WebSocket,如果以下条件满足的话(否则用长轮询)
+		客户端支持WebSocket
+		服务端支持WebSocket
+		客户端支持Cross-Origin Resource Sharing,这个大家自己百度
+		
+入门SignalR：
+	.Net安装SignalR：
+		install-package Microsoft.AspNet.SignalR
+		
+	创建一个集线器类：
+		public class ChatHub : Hub
+		{
+			public void Send(string name, string message)
+			{
+				Clients.All.addNewMessageToPage(name, message);
+			}
+		}
+		
+		使用Clients对象：
+			向所有人发送(包括自己)：All { get; }
+	　　　　向所有人发送(排除一些人)：AllExcept(params string[] excludeConnectionIds);
+	　　　　向指定人发送，一对一：Client(string connectionId);
+	　　　　向一些人发送,一对多：Clients(IList<string> connectionIds);
+	　　　　向某个组发送(排除一些人)：Group(string groupName, params string[] excludeConnectionIds);
+	　　　　向多个组发送(排除一些人)：Groups(IList<string> groupNames, params string[] excludeConnectionIds);
+	　　　　由Id标识的特定用户：Users(IList<string> userIds);
+	　　　　由Id标识的特定多用户：User(string userId);
+		
+		注：该类需继承Hub,Hub下面会有详解
+			Hub可以重写的几个必要的方法：
+				(1).OnConnected：连接成功时调用
+			　　(2).OnDisconnected：连接断开时调用
+			　　(3).OnReconnected：重连时调用
+			
+	创建一个入口类(OWIN Startup Class)：
+		public class Startup
+		{
+			public void Configuration(IAppBuilder app)
+			{
+				app.MapSignalR();		--在此处指定使用的通讯模型的URl
+			}
+		}
+		
+		MapSignalR 方法：为空不代表不指定URL,它会默认指定一个路径 "/signalr"
+			指定URL的方式：app.MapSignalR("/myhub1", new HubConfiguration())
+	
+	创建页面：
+		HTML部分：
+			<h2>Chat</h2>
+			<div class="container">
+				<input type="text" id="message" />
+				<input type="button" id="sendmessage" value="Send" />
+				<input type="hidden" id="displayname" />
+				<ul id="discussion"></ul>
+			</div>
+		
+		Script部分：
+			<script src="~/Scripts/jquery-3.4.1.min.js"></script>
+			<script src="~/Scripts/jquery.signalR-2.4.1.min.js"></script>
+			<script src="~/signalr/hubs"></script>		--该类为自动生成的代理类
+			页面Load事件：
+				代理模式下：
+					//直接建立代理对象
+					var demoChatHubProxy = $.connection.chatHub;
+					//语法：$.connection.集线器名称
+					
+					//注册客户端方法 addMessageToList 当调用方法时客户端会返回执行对应方法名的方法
+					demoChatHubProxy.client.addMessageToList = function (name, message) {
+						console.log(name + ' ' + message);
+					};
+					//语法：demoChatHubProxy.client.xxx = function(){ ... }
+					
+					//客户端连接服务器
+					$.connection.hub.start().done(function () {
+						//为按钮注册事件
+						$('#newChatMessage').click(function () {
+							//调用服务器方法
+							demoChatHubProxy.server.newChatMessage($('#displayname').val(), $('#message').val());
+							//语法：demoChatHubProxy.server.xxx(参数1,参数2,...)
+						 });
+					});
+					
+				非代理模式下：
+					//连接指定url
+					var connection = $.hubConnection();
+					//创建对应名称的代理对象
+					var demoChatHubProxy = connection.createHubProxy('ChatHub');
+					//注册客户端方法
+					demoChatHubProxy.on('addMessageToList', function(name, message) {
+						console.log(name + ' ' + message);
+					});
+					//客户端连接服务器
+					connection.start().done(function() {
+						//注册事件
+						$('#newChatMessage').click(function () {
+							//调用服务器方法
+							demoChatHubProxy.invoke('newChatMessage', $('#displayname').val(), $('#message').val());
+						});
+					});
+					
+				如果 MapSignalR 方法更改了指定模型的URL：
+					代理模式：为connection对象设置url属性为 MapSignalR 方法指定的路径
+					
+					非代理模式：$.hubConnection("/myhub1", { useDefaultPath: false })	--useDefaultPath 是不使用 /signalr 这个默认路径
+					
+				注：无论是在非代理模式下还是代理模式下都必须在Con.Start开始之前注册声明至少一个方法,如果没有注册的话，Hubs的 OnConnected 方法将不会被调用，那么客户端的方法就不能被服务端调用(这容易埋坑，所以要提前注册方法)
+	
+	自定义方法：
+		示例：
+			服务端：
+				public void SendMsg(){ ... }
+	
+		调用需注意事项：
+			public void AddUser(string userName, string userId){....}
+			public class ChatHub : Hub { ... }
+			代理模式：
+				
+				服务端：AddUser、ChatHub
+				客户端：addUser、chatHub
+				
+				注：首字母必须小写,如果想避免这种限制,那么就使用[HubName()] 和 [HubMethodName()]特性来标注名称
+			
+			非代理模式：没有大小写限制
+	
+	上下文对象(this.Context)：
+		当前用户的标记: this.Context.ConnectionId (Guid生成，不会重复)
+		其它信息：RequestCookies、Headers、QueryString、User、Request
+		
+		示例：
+			public void SendAll()
+			{
+				Clients.AllExcept(this.Context.ConnectionId).ToNewMsg(Str)
+			}
+	
+	指定SignalR通信方式：connection.start({ transport: ['webSockets','longPolling'] });		--尝试使用WebSockets,否则的话将使用长轮询
+		可以指定的方式常量：
+			webSockets
+			foreverFrame
+			serverSentEvents
+			longPolling
+	
+连接和集线器：
+	两种通信模型：持久连接模型(Persistent Connections)和集线器(Hubs)模型
+		理论： 通常我们使用的通信模型是Hub模式的,因为它相对于持久连接模型来说,使用Hub可以让你对强类型参数方法,model绑定成为易事,Hub算是持久连接模型的升级版,所以当前我们所研究的是Hub模型
+		Hub模型：
+			简介：它是一种RPC模式，允许客户端和服务器端各自自定义方法并且相互调用，对开发者来说相当友好

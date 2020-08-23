@@ -1,0 +1,157 @@
+1.基础
+	代码：一行代码后没必要加分号
+	
+	go语言的使用特点：func testPtr(num *int){
+		*num = 20
+	}
+	
+	天然并发：
+		1.从语言层面支持并发,实现简单
+		2.goroutine,轻量级线程,可实现大并发处理,高效利用多核
+		3.基于CPS并发模型(Communicationg Sequential Processes)实现
+		
+	管道通信：吸收了管道通信机制,形成Go语言特有的管道channel,通过管道channel,可以形成不同的goroute之间的互相通讯
+
+	函数返回多个值：go函数支持返回多个值
+		例：func GetSumAndSub(n1 int,n2 int)(int,int){
+			sum := n1+n2
+			sub := n1+n2
+			return sum,sub
+		}
+	
+	新创新：切片slice,延时执行defer
+	
+	Cmd格式化go文件 gofmt -w hello.go
+	
+	执行流程分析
+		.go文件 ==>go build 编译成exe文件==>结果
+			PS：build编译时可指定编译出来的文件名 go build -o hello.exe hello.go
+			
+		.go文件 ==> go run 源码 ==> 结果
+		
+		PS：以上两种第一种方式运行速度会比第二种形式运行速度快
+	
+	变量：
+		var i int：指定变量类型,声明后若不赋值,使用默认值
+		var num = 10.11：根据值自行判定变量类型(类型推导)
+		name := "tom"：省略var关键字,:=左侧的变量不应该是声明过的,否则会导致编译错误
+		
+		多个变量定义：
+			var n1,n2,n3 int
+			var n1,name,n3 = 100,"tom",888
+			n1,name,n3:=100,"tom",888
+			
+			
+		全局变量定义：
+			var (
+				n1=100
+				n2="tom"
+				n3=888
+			)
+	
+	fmt.printf格式化:
+		%T：同等于type,输出类型
+		%d：输出一个数字类型,也可以是对应的Unicode码值
+		%c：输出对应的字符,而不是unicode字符码
+		%f：输出小数类型格式
+		%v：作为原子输出,按照变量的值
+	
+	变量类型：
+		首字母大写的表示公开变量,反之则是私有变量
+		
+		基本类型：
+			bool、string(Go将string归类为基本类型)、int(int8、int16、int32、int64) uint(uint8、uint16、uint32、uint64、unintptr)
+			byte(uint8的别名)、rune(int32的别名,表示一个Unicode码点)、complex64、complex128
+			
+		派生/复杂数据类型
+			指针(Pointer)、数组、结构体(struct,同class)、管道(Channel)、函数(也是一种类型)、切片(slice)、接口(interface)、map
+			
+		int:
+			有符号
+			32系统占4个字节
+			64系统占8个字节
+			
+			int8	占用1字节	范围：-128~127
+			int16	占用2字节	范围：-2(15次方)~2(15次方)-1
+			int32	占用4字节	范围：-2(31次方)~2(31次方)-1
+			int64	占用8字节	范围：-2(63次方)~2(63次方)-1
+			
+		uint:
+			无符号
+			32系统占4个字节
+			64系统占8个字节
+			
+			uint8	占用1字节	范围：0~255
+			uint16	占用2字节	范围：0~2(16次方)-1
+			uint32	占用4字节	范围：0~2(32次方)-1
+			uint64	占用8字节	范围：0~2(64次方)-1
+		
+		rune：与int32一样,表示一个Unicode码
+		
+		byte：与uint8等价,要存储字符时选用byte
+		
+		float：尽量使用float64,因为其精度更高
+			
+		类型转换：
+			go不支持隐式转换,必须显式转换,T(v)';go中可以数据类型小的转为数据类型大的,也可以反过来,但是结果会按溢出处理
+			基本类型和string的转换：
+				基本类型转string：
+					1.str := fmt.Sprintf("%参数",表达式)
+					2.strconv函数：
+						导入strconv包
+						str := strconv.FormatInt(int64(num3),10)	10代表转为几进制的数字
+									   FormatFloat(num4,'f',10,64)	10代表精度保留几位
+						
+						str := strconv.Itoa(int(num5))
+					
+				string转基本类型：
+					b , _ = strconv.ParseBool(str)		--下划线(空标识符)表示忽略返回的该位参数
+					fmt.println("b type %T b=%v",b,b)
+					
+					PS：如果转换时string的值不足以转化为目标类型,例如：strconv.ParseBool("hello"),那么将返回目标类型的默认值,并返回错误信息
+		
+		PS：
+			GoLang程序中使用整数类型时,遵循保小不保大的原则,即：在保证程序的正确运行下,尽量使用占用空间小的数据类型(如：年龄)
+			查看一个变量的类型,可以使用fmt的printf方法格式化输出：fmt.printf("n1的数据类型%T",n1)  %T等同于type
+			查看一个变量占用的字节大小,需要用到包unsafe.Syzeof(n1),可以返回该变量占用的字节数,fmt.printf("n1占用的字节数是 %d",unsafe.Sizeof(n1))
+				普通引入包：
+					import "fmt"
+					import "unsafe"
+					
+					简洁写法：import(
+								"fmt"
+								"unsafe"
+								_ "context"			--加下划线表示忽略这个包
+								)
+	
+	获取控制台输入：
+		1.fmt.Scanln(&name)：当程序走到这里时,会等待控制台输入name
+		
+		2.fmt.Scanf("%s %d %f %t",&name,&age,&sag&isPass)：按指定格式输入
+								
+								
+2.指针
+	获取变量的地址：&,例：var num int = 10  fmt.println(&num)
+	
+	指针的定义：var ptr *int = &num		--在这里的num类型必须是int类型,否则会报错,类型不匹配
+	
+	获取指针指向的值：*ptr
+
+3.引用类型和值类型
+	值类型变量直接存储值,通常在栈中分配
+	
+	引用类型变量存储地址,地址对应的空间才是值,通常在堆上分配,当没有任何变量引用这个地址时,该地址对应的数据空间会成为一个垃圾,等待GC回收
+	
+4.原码、反码、补码
+	对于有符号的数而言
+		二进制的最高位是符号位：0表示正数,1表示负数(第一位是符号位0代表是正数,1代表是负数)
+		正数的原码、反码、补码都一样
+		负数的反码=它的原码符号位不变,其他位取反(0->1,1->0)
+		负数的补码=它的反码+1
+		0的反码,补码都是0
+		在计算机运算的时候,都是以补码的方式来运算的
+
+5.分支
+	if age := 20; age > 18{				--golang可以在if中直接定义变量
+		fmt.println("你的年龄大于18")
+	}

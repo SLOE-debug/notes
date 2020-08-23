@@ -1,0 +1,201 @@
+1.nginx环境部署
+	安装pcre依赖：https://www.cnblogs.com/zkfopen/p/10156494.html
+		查询pcre版本 pcre-config --version
+	
+	安装其他依赖：yum -y install make zlib zlib-devel gcc-c++ libtool openssl openssl-devel
+	
+	从官网拉取nginx：wget http://nginx.org/download/nginx-1.2.8.tar.gz
+		安装操作请参考pcre依赖的安装方式
+	
+	启动脚本默认在/usr/local/nginx/sbin/目录下，可以在./configure 里参数指定脚本目录
+	
+	./nginx运行脚本
+		运行该命令需要进入nginx/sbin/下进行运行
+		
+		查看nginx版本号：./nginx -v
+		
+		启动nginx：./nginx
+		
+		停止nginx：./nginx -s stop
+		
+		重新加载nginx：./nginx -s reload
+	
+	ps -ef | grep nginx：查看运行的进程
+	
+	防火墙端口：
+		查看防火墙开放端口列表：firewall-cmd --zone=public --list-ports
+		
+		启用端口：firewall-cmd --add-port=8001/tcp --zone=public --permanent
+		
+		禁用端口：firewall-cmd --remove-port=8001/tcp --zone = public --permanent
+		
+		重启防火墙：firewall-cmd --reload
+		
+2.nginx配置文件：
+	默认是：/usr/local/nginx/conf/nginx.conf文件
+	
+	nginx配置文件的组成
+		第一部分：全局块
+			从配置文件开始到events块之间的内容,主要会设置一些影响nginx服务器整体运行的配置指令
+			例：worker_processes 1;该指令为配置服务器并发处理量,该值越大,那么可以处理的并发越多
+		
+		第二部分：events块
+			events块涉及的指令主要影响nginx服务器与用户的网络连接
+			比如worker_connections 1024;支持的最大连接数
+		
+		第三部分：http块
+			http全局块：
+				http全局块配置的指令包括文件引入、MIME-TYPE定义、日志自定义、连接超时时间、单链接请求数上限等
+				
+			server块：
+				这块和虚拟主机有密切关系,虚拟主机从用户角度看,和一台独立的硬件主机是完全一样的,该技术的产生是为了节省互联网服务器硬件成本
+				全局server块：最常见的配置是本虚拟机主机的监听配置和本虚拟主机的名称或IP配置
+				location块：一个server块可以配置多个location块
+					这块的主要作用是基于nginx服务器接收到的请求字符串(例如server_name/uri-string),对虚拟机名称
+					(也可以是IP别名)之外的字符串(列入前面的/uri-string)进行匹配,对特定的请求进行处理。地址定向
+					、数据缓存和应答控制等功能,还有许多第三方模块的配置也在这里进行
+					
+	反向代理：
+		例1：
+			在Windows机器上配置Host：192.168.34.10 www.123.com
+			添加server块
+			设置server块server_name值为当前linux的IP地址
+			添加location块：location / {
+				...
+				proxy_pass http://127.0.0.1:3256
+				...
+			}
+		
+		例2:
+			添加server块
+			设置server块server_name值为当前linux的IP地址
+			添加location块：
+				location ~ /edu/{		--如果请求地址中包含edu,那么就进入该块
+					proxy_pass http://127.0.0.1:3256
+				}
+				
+				location ~ /vod/{		--如果请求地址中包含vod,那么就进入该块
+					proxy_pass http://127.0.0.1:3255
+				}
+				
+				注：~符号代表的是使用正则表达式匹配请求地址,区分大小写
+					~*表示正则表达式匹配但不区分大小写
+					
+	负载均衡：
+		upstream myserver(myserver为自定义名称){		--设置服务列表
+			server 192.168.34.10:3256;
+			server 192.168.34.10:3256;
+		}
+		
+		server{
+			server_name 192.168.34.10
+			...
+			location / {
+				proxy_pass http://myserver;
+			}
+			...
+		}
+		
+		分配策略：
+			轮询(默认策略)：每个请求按时间顺序逐一分配到不同的后端服务器,如果后端服务器down掉,那么自动剔除
+			
+			weight(权重策略)：权重默认为1,权重越高被分配的用户就越多
+				例：upstream myserver{
+					server 192.168.34.10:3256 weight=5;
+					server 192.168.34.10:3255 weight=1;
+				}
+				
+			ip_hash：每个请求按访问ip的hash结果分配,这样每个访客固定访问一个后端服务器,可以解决session的问题
+				例：upstream myserver{
+					ip_hash;
+					server 192.168.34.10:3256;
+					server ...
+				}
+				
+			fair：按照后端服务器的响应时间分配,响应时间短的优先分配
+				例：upstream myserver{
+					server 192.168.34.10:3256;
+					...
+					fair;
+				}
+				
+	动静分离：
+		location /img/ {
+			root /data/;			--一个指定的路径
+			autoindex on;			--列出该路径中的文件信息
+			index 文件名1 文件名2; 	--指定该路径默认的文件,可指定多个
+		}
+	
+	高可用：
+		准备：
+			两台nginx服务器
+			Keepalived(yum install keepalived -y)
+			虚拟ip
+		
+		keepalived：
+			默认目录：/etc/keepalived
+			
+			修改keepalived.conf：
+				global_defs{				--全局配置
+					notification_email{
+						acassen@firewall.loc
+						failover@firewall.loc
+						sysadmin@firewall.loc
+					}
+					notification_email_from Alexandre.Cassen@firewall.loc
+					smtp_server 192.168.17.127	//本机ens33 IP
+					smmtp_connect_timeout 30
+					router_id LVS_DEVEL		#访问到主机的名字,host中配置即可(127.0.0.1 LVS_DEVEL)
+				}
+				
+				vrrp_script chk_http_port{	--脚本配置
+					script "usr/local/src/nginx_check.sh"
+					interval 2 #(检测脚本执行的间隔,单位为秒)
+					weight 2 #权重
+				}
+				
+				vrrp_instance VI_1{			--虚拟ip配置
+					state MASTER #备份服务器上将 MASTER 改为 BACKUP
+					interface ens33 //网卡名称
+					virtual_router_id 51 #主、备机的 virtual_router_id 必须相同
+					priority 100	#主、备机取不同的优先级,主>备
+					advert_int 1	#每隔多长时间发送心跳包
+					authentication {	#校验方式
+						auth_type PASS	#方式为密码
+						auth_pass 1111	#密码为4个1
+					}
+					virtual_ipaddress {
+						192.168.17.50	//VRRP H虚拟地址,该地址网段必须和全局配置中的ip网段一样
+					}
+				}
+			nginx_check.sh内容：
+				#!/bin/bash
+				A='ps -C nginx -no-header |wc -l'
+				if [ $A -eq 0 ];then		#如果该命令(查询进程中nginx进程是否等于0)执行结果为true,那么尝试再次运行Nginx实例
+					/usr/local/nginx/sbin/nginx
+					sleep 2
+					if [ 'ps -C nginx --no-header |wc -l' -eq 0 ];then	#如果在该阶段命令行执行结果还是true,那么杀掉当前的keepalived
+						killall keepalived
+					fi
+				fi
+			
+			启动：service keepalived.service start
+			
+		nginx机制：
+			master和多个worker：一个分配者和多个处理者,那么分配也不是均衡分配,而是争抢,多个worker争抢一个任务
+				好处：
+					热部署：
+						如果在nginx -s reload前,worker中有一个已经有任务在处理,那么该worker不参与热部署,其他的worker全部更新成最新的nginx..conf
+					
+					独立的进程：
+						每个worker都是一个独立的进程,不需要加锁,互不影响,如果其中一个挂掉了,那么其他的worker还是可以继续执行任务,请求并不会被中断
+					
+					worker最好设置成根服务器的cpu数量一样,设少了会浪费cpu,设多了会造成cpu频繁切换上下文带来的消耗
+		
+			连接数 worker_connection
+				发送请求,占用了worker的几个连接数：2(静态资源,来回)或者4(动态资源,客户端与worker,worker与数据库)个
+				
+			支持的最大并发数：
+				普通资源访问最大并发数： worker_connections * worker_processes / 2;
+				
+				http资源/反向代理：worker_connections * worker_processes / 4;

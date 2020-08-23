@@ -1,0 +1,14 @@
+1.基础
+	指定编码格式：
+		# -*- coding:UTF-8 -*-
+		
+	等待用户输入：Name = raw_input(输出文字)
+	
+	输出：print Name
+	
+	判断：
+		if Name == "Admin" and Name.length > 2:
+		
+		eles:
+		
+	注释：# 这是注释

@@ -1,0 +1,65 @@
+1.解构
+	解构：解构赋值允许你使用数组或对象字面量的语法，将数组和对象的属性付给各种变量。
+	
+	数组解构：
+		普通语法：
+			ES6语法：
+				var first=someArray[0];
+				var second=someArray[1];
+				
+			TypeScript语法：
+				let input = [1, 2];
+				let [first, second] = input;	--当前first = 1,second = 2
+		
+		对任意深度的嵌套数组进行解构：
+			var [foo,[[bar],baz]]=[1,[[2],3]];	--foo=1,bar=2,baz=3
+			
+		在函数中声明：
+			function f([first, second]: [number, number]) {		--该方式定义变量类型,[变量名, 变量名]:[变量类型, 变量类型]
+				console.log(first);
+				console.log(second);
+			}
+			f(input);
+		
+		...语法创建剩余变量：
+			let [first, ...rest] = [1, 2, 3, 4];
+			console.log(first); // outputs 1
+			console.log(rest); // outputs [ 2, 3, 4 ]
+			
+		忽略尾随元素：
+			let [first] = [1, 2, 3, 4];
+			console.log(first);		--结果1
+			
+		忽略部分元素：
+			let [, second, , fourth] = [1, 2, 3, 4];
+			console.log(second);	--结果2
+			console.log(fourth);	--结果4
+	
+	对象解构：
+		解构：
+			let o = {
+				a: "foo",
+				b: 12,
+				c: "bar"
+			};
+			let { a, b } = o;		--a和b是通过o.a和o.b,如果不需要C可以忽略它			
+			({ a, b } = { a: "baz", b: 101 });		--要用括号把它扩起来赋值a和b变量,因为Javascript通常会将以 { 起始的语句解析为一个块
+		
+		忽略尾随元素：
+			let { a, ...passthrough } = o;
+			let total = passthrough.b + passthrough.c.length;
+			
+		属性重命名：
+			let { a: newName1, b: newName2 } = o;
+				--这里的冒号不是指定类型的,如果你想指定类型,那么需要在其后写上完整形式：{变量名:新的属性名, 变量名:新的属性名}:{变量类型, 变量类型}
+				
+		默认值：
+			function keepWholeObject(wholeObject: { a: string, b?: number }) {		--?代表可以为空
+				let { a, b = 1001 } = wholeObject;		--默认值可以让你在属性为 undefined 时使用缺省值
+			}
+			
+		函数声明：
+			type C = { a: string, b?: number }
+			function f({ a, b }: C): void {
+				// ...
+			}

@@ -1,0 +1,1334 @@
+补充知识点
+		--静态字段:[public] static int 字段名 = 某个初始值;
+		
+		用处:需要一个固定不可变的一个字段时声明的变量
+
+1.高级参数——out参数
+	out参数:在方法为void类型时,也可以返回的多余参数
+	
+	语法:
+		传参:方法名(out 变量名);	--out后面的变量名必须在传参前声明,赋不赋值都可以
+		
+		形参:	[public] void 方法名(out 数据类型 变量名, out 数据类型 变量名){
+					方法体;
+				}
+		
+	注:out参数必须在方法内部赋值,形参里面是out形参,
+	传参时也要在传参前面加out,如果传参时没有所指定的out参数,就先声明出来所有的out参数,赋不赋值都可以
+	out参数在离开方法之前必须为其赋值，否则抛异常
+	
+	用处:用来返回多个不同类型值时时候使用的参数
+
+2.高级参数——Params可变参数
+	params参数:被称为可变数组长度,会自动按照传进来类型一致的参数,指定数组的长度
+	
+	语法:
+		传参:方法名(其他参数,一堆跟params参数数组一样的元素);
+		
+		形参:	[public] void 方法名(其他参数, Params 数据类型 变量名){
+					方法体;
+				}
+	
+	注:params参数必须在形参的最后,否则抛异常,一个方法中只能有一个params参数
+
+	用处:传进来一个不可预知长度数组时使用的参数
+	
+3.析构函数
+	析构函数:当程序结束时运行的函数
+	
+	.net自带机制:GC Garbage Collection 垃圾回收器,会自动释放垃圾
+	
+	语法:
+		~类名(){
+			
+		}
+	用处:帮助程序释放资源
+	
+4.静态类和非静态类的区别
+	1.非静态类里面可以有静态成员,也可以有非静态成员
+	
+	2.调用静态成员:类名.静态成员();
+	
+	3.调用非静态成员:(类名 对象名 = new 类名)先实例化类,(对象名.非静态成员())再用对象名调用非静态成员
+	
+	总结:调用的类名不一样,静态方法中只能访问静态成员,不可以访问非静态成员,非静态方法中静态非静态都可以访问到
+	静态类中只允许有静态成员,只要是非静态就抛异常,静态类不需要实例化,直接就可以调用
+	静态类是要占内存的,一般内存使用:堆、栈、静态存储区域
+	
+5.继承
+	构造方法需注意:
+		父类用子类参数：this.参数名
+		子类用父类参数::base(父类参数传进来)
+		注:也就是说,父类的构造方法干了什么事情,子类也得干什么事情
+	重复方法:
+		如果方法重复了,想要刻意隐藏父类同名方法,请带上new关键字,隐藏后子类将不能调用到父类同名成员
+		语法:
+			public new void 方法名(){
+				
+			}
+			
+[]符号括住的关键字可以被省略
+
+6.常量
+	语法:Const 数据类型 变量名 = 值;
+	
+	特点:常量不能被重新赋值
+	
+7.枚举
+	语法:	[public(访问修饰符)] enum 枚举名{
+			值1,
+			值2,
+			值3,
+			.......
+		}
+	注:值后面跟的是英文逗号，枚举名要符合pascal命名规范
+
+	枚举命名位置:命名空间下，类上面，表示整个命名空间下所有的类都可以使用
+	
+8.枚举和int String 类型之间的转换
+	默认:枚举类型默认可以跟int类型互转,互相兼容
+
+	枚举转为int类型值:int 变量名 = (int)枚举变量
+
+	int转为枚举类型值:枚举名 变量名 = (枚举类型)int数值,如果int数值超过了枚举的下标,将输出原本int值
+
+	枚举转为String类型值:不止枚举类型可以转为String类型,所有类型都可以转成String类型,方法:类型变量.ToString();
+
+	String转为枚举类型值: 枚举类型 变量名 = (枚举类型)Enum.parse(typeof(枚举类型),字符串),注:Enum大写首字母,parse方法里需要typeof指定一个枚举类型
+
+	String转为枚举类型值(自己研究的):(ZhuangT)Convert.ToInt32("2")只能转换数字型的字符串
+
+	String转为枚举类型值需要注意:如果枚举内没有相应的字符串,则会抛异常
+
+	特点:枚举类型第一位下标为0,如果指定了下标将从指定下标开始依次排列
+	
+9.结构
+	语法:	[public] struct 结构名{
+			成员;
+		}
+
+	结构命名位置:跟枚举一样,也是命名到命名空间下,类上面,所有类都可以使用
+
+	注:结构内成员有访问权限,需要添加修饰符,结构成员命名规范:成员前加_(其实没多大用,就是装逼,让别人看你像大神)
+	
+	特点:结构不再创建很多个变量,只需要结构类型的一个变量,即可完成所有变量存储
+	
+10.Directroy类
+	复习：
+		file 操作文件
+		path 路径
+		fileStream 文件流
+		StreamReader StreamWriter
+	函数：
+		Directory  属于IO命名空间 using System.IO;
+		Directory .CreateDirectory(创建路径) 创建文件夹
+		Directory .Delete(删除路径) 删除文件夹
+		Directory .Delete(删除路径,是否删除子文件夹--True:False) 强制删除或不删除文件夹
+		Directory .Move(剪切文件,剪切文件移动的路径) 剪切文件
+		Directory .GetFiles(路径) 获取指定目录下所有文件的全路径,返回String类型数组，需要数组接收
+		Directory .GetFiles(路径,想要获取文件结尾的字符串) 获取指定目录下指定格式文件,返回String类型数组，需要数组接收
+		Directory .GetDirectories(路径) 获取指定目录下的所有文件夹路径,返回String数组，需要数组接收
+		Directory .Exists(路径) 判断电脑是否含有此文件夹路径,返回bool类型
+		
+11.WebBrowser控件
+	复习：
+		Directory 操作文件夹
+		Create 创建文件夹
+		Delete 删除文件夹
+		Move 剪切文件夹
+		Exist 判断是否存在
+		GetFiles 获得指定目录下所有文件的全路径
+		GetDirectory 获得指定目录下文件夹的路径
+		
+	Uri属性：
+		将String转成uri,方法:Uri 名称 = new Uri(String字符串),注：uri对网页地址很敏感,必须加前缀:"http\\"或"https\\";
+		
+	WebBrowser略：
+		网页组件
+		属性url为初始地址
+12.ComboBox控件
+	items:下拉框集合，数据
+		--代码更改:下拉框名称.items.add(object 任意类型);
+	items方法:
+		--add()	增加一行下来选项
+		--Clear()	清除下拉框内的所有选项
+	ComBoBox属性:
+		--DropDownStyle:下拉框样式
+
+	ComBoBox命名规范:一般都以cbo开头
+
+	DateTime:
+		--Now:获取当前时间
+		--Now.Year:获取当前年份
+		--Now.Month:获取当前月份
+		--Now.Hour:获取当前小时
+		--Now.Minute:获取当前分钟
+		--Now.Second:获取当前秒
+13.ListBox控件
+	ListBox:列表控件
+		--Items:操作数据
+		--Items.Add()	添加一行信息,可以容纳所有类型
+		--listBox1.SelectedIndex:获取选择列表的索引,索引从0开始
+	SoundPlayer:音乐播放类
+14.打开对话框
+	对话框:
+	--OpenFileDialog	打开对话框
+		--Open.Title:对话框名称
+		--Open.Multiselect:对话框多选，boll类型
+		--Open.InitialDirectory:对话框默认打开路径
+		--Open.Filter:对话框可以打开的文件类型，编辑格式(文本文件|*.txt|)
+		--Open.FileName:获取选中文件的路径
+	--SaveFileDialog	保存对话框	--保存对话框的属性跟打开对话框一样,除了多选文件一项
+	--FontDialog		文字对话框	--文字对话框创建完毕后,应在对应的控件上,空件.Font = 文字对话框的实例.Font
+	--ColorDialog		颜色对话框	--颜色对话框创建完毕后,应在对应的控件上,空件.ForeCloro = 文字对话框的实例.Cloro
+	TextBo1补充属性:
+		--WordWrap:是否自动换行
+		--ScrollBars:滚动条
+		--PasswordChar:指用户输入显示的字符
+
+15.里氏转换
+	子类对象可以调用父类的方法,父类不可以调用子类的方法
+	
+	子类可以赋值给父类:如果有一个地方需要父类作为参数,可以传一个子类代替
+		
+		子类赋值给父类方法:父类 父类实例名 = new 子类():
+	
+	如果父类中装的是子类对象,那么可以将这个父类强转为子类
+		强转为子类方法:子类 实例名 = (子类)父类实例名
+	
+	is:表示类型转换,如果成功返回Ture,否则返回Flase
+	
+	is用法:
+		嵌套在if结构中用来判断
+		if(父类名 is 子类名){
+			
+		}else{
+			
+		}
+		
+	as:表示类型转换,如果能转换返回类型对象,否则返回null
+	
+	as用法:
+		不用判断直接执行,错不错都不抛异常,使用方法
+		子类名 子类实例名 = 父类实例名 as 子类名;
+		
+16.protected访问修饰符:
+	protected意思:受保护的
+	
+	可以在当前类的内部和子类中访问到
+	
+	修饰方法:protected 数据类型 变量名 = 值;
+	
+		  或:protected 返回类型 方法名(){}
+	
+17.ArrayList集合	--非静态类
+	所属命名空间:using System.Collections
+	
+	特点:长度任意,类型随便
+	
+	声明ArrayList集合语法:
+		ArrayList 实例名 = new ArrayList();
+	
+	添加ArrayList集合单个数据方法:
+		ArrayList实例名.add();	--注:这里的add里面是要导入一个object类型,通过里氏转换我们知道,
+		可以用子类代替父类传进去,因为objcet是所有类型的父类,所以这里的add可以传任何类型的数值。
+		
+	添加ArrayList集合集合或数组方法:
+		ArrayList实例名.addRange();	--注:这里的addRange里面是要导入一个集合或者数组
+	
+	
+	清空ArrayList集合中所有元素:
+		ArrayList实例名.Clear();
+	
+	删除ArrayList集合中元素:
+		ArrayList实例名.Remove();	--注:Remove括号中输入什么就删什么,删除单个元素
+		ArrayList实例名.RemoveAt();	--注:RemoveAt括号中填写的是下标,根据下标删除单个元素
+		ArrayList实例名.RemoveRange();	--注:RemoveRange括号中填写的是两个Int值,也就是两个下标,删除指定范围内
+		的元素
+	
+	ArrayList排序:
+		ArrayList实例名.Sort();升序排列	--注:排序时一定要注意集合内所有数据支持排序,否则抛异常
+		ArrayList实例名.Reverse();反转集合顺序
+	
+	ArrayList插入:
+		ArrayList实例名.Insert();	--注:括号里面要填写一个下标,后面填一个object类型的数据,在指定的下标位置插
+		入一个元素
+		ArrayList实例名.InsertRange();	--注:括号里面要填写一个下标,后面填一个object类型的数据,在指定的下标位
+		置插入一个集合
+		
+	ArrayList包含:
+		ArrayList实例名.Contains();	--注:将判断是否包含括号里输入的值,如果真返回True,如果假返回False
+	
+	ArrayList属性:
+		Count:表示这个集合中实际包含的元素的个数
+		Capcity:表示这个集合中可以包含的元素的个数
+		特征:每当集合里的数据超过了可以包含的个数,那么会再在内存里面申请一倍的空间
+		例:4、8、16、32、64、128。。。
+	
+	注:对象和数组类型的都需要用到里氏转换转换成相应的类型输出
+	
+18.Hashtable	键值对集合	--非静态类
+	所属命名空间:using System.Collections
+	
+	特点:跟ArrayList集合一样,长度随便,类型随便
+	
+	声名Hashtable集合语法:
+		Hashtable 实例名 = new Hashtable();
+		
+	在Hashtable集合中添加数据方式:
+		实例名.Add();	注:Add里面要求有两个参数,都是object类型,前面值为键值,后面值为对应的值
+		实例名[键] = 某个值;	注:如果下标里面有数据会被直接替代掉
+	
+	Hashtable方法及属性:
+		Keys:获取一个Hashtable集合中的键,返回一个集合
+		values:建对应的值
+		Contains(指定键)
+		ContainsKey(指定键)
+		ContainsValue(指定值);
+		clear();清空集合中所有数据
+		Remove(键);
+	
+	注:在Hashtable集合中[]中填写的值为键,输入的键将返回对应的值,其作用如同字典,
+	通过想要找的拼音(键),找到对应的字(值),所以称为键对值集合,
+	在键值对集合中,键必须是唯一的,而值可以重复
+	
+	扩充知识点:
+	
+		foreach循环结构每个部分的意思:
+			
+			var:
+				var为推断类型,根据变量中存储的值来推断类型
+					优:可以存储任何数据类型,可以自动帮你推断出来数据类型
+					缺:在命名var类型变量时,必须对其赋值,否则报错,而我们经常会因为不知道用户会输入什么值
+					   所以不能一下就把变量写死,所以var变量不常用
+					
+				C#是一门强类型语言:在代码中,必须对每一个变量的类型有一个明确的定义,例:int n=15;
+				JS是一门弱类型语言:在代码中,不需要对每一个变量类型有一个明确的定义,var类型可以存储任何类型数据
+				例:var n="awf" 15 6.3 'c';
+				
+			item:每一项，每一个元素
+			
+			in:在那个那个里面
+			
+			collection:集合
+			
+19.Path类	--静态类
+	所属空间:using System.IO;
+	
+	方法:
+		Path.GetFileName(String path);	--快速获取一个路径下文件的名字
+		Path.GetFileNameWithoutExtension(String path);	--快速获取一个路径下文件的名字,不包含扩展名
+		Path.GetExtension(String path);	--快速获取一个路径下文件的扩展名
+		Path.GetDirectoryName(String path);	--快速获取一个路径下文件所在的文件夹全路径
+		Path.GetFullPath(String path);	--快速获取一个路径下文件中文件的全路径
+		Path.Combine(String path);	--连接两个字符串作为路径
+		
+20.File类	--静态类
+	所属空间:using System.IO;
+	
+	方法:
+		File.Create(String path);	--创建一个文件
+		File.Delete(String path);	--删除一个文件
+		File.Copy(String copypath,String newpath);	--复制一个文件
+		File.ReadAllBytes();	--读取一个文件,返回一个byte数组
+		File.ReadAllLines();	--读取一个文本文件,返回一个字符串数组
+		File.ReadAllText();		--读取一个文本文件,返回一个字符串
+		File.WriteAllBytes();	--写出一个文件,需要路径以及byte数组
+		File.WriteAllLines();	--写出一个文件,需要路径以及String数组
+		File.WriteAllText();	--写出一个文件,需要路径以及String字符串
+		File.AppendAllLines();	--追加(增加)一段文本,需要路径以及String数组
+		File.AppendAllText();	--追加(增加)一段文本,需要路径以及String字符串
+		
+	补充:
+		Encoding类:
+			Encoding.编码类型.GetString(字节数组);	--此方法将返回一个String字符串
+			Encoding.编码类型.GetString(字节数组,解码开始下标,最大下标);	--此方法将返回一个String字符串
+			
+		
+21.List集合
+	其作用跟ArrayList集合一样,但List集合中只能存在一种类型,里面的方法跟属性跟ArrayList类型一样
+	
+22.装箱拆箱
+	装箱:值类型 > 引用类型
+	拆箱:引用类型 > 值类型
+	判断两种类型是否存在装箱拆箱,就要看,这两种类型是否存在继承关系,如果有继承关系的话,那么就有可能存在装箱拆箱
+
+23.Dictionary集合
+	字典集合,对应的Hashtable,只不过建和值必须指定类型
+	
+	Foreach循环遍历字典集合:
+		foreach(KeyValuePair<键类型,值类型> item in 字典集合)
+		{
+			Console.WriteLine("{0}---{1}",item.Key,item.Value);
+		}
+		
+	声名Dictionary集合语法:
+		Dictionary<键类型,值类型> 实例名 = new Dictionary<键类型,值类型>();
+		
+24.FileStream文件流
+	所属空间:using System.IO;
+	
+	File跟FileStream区别:File类一下全部读出来,而FileStream类则是一点一点读
+	
+	声明FileStream类语法:
+		FileStream 实例名 = new FileStream(路径,针对文件的操作,针对数据的操作);
+	
+	FileStream方法:
+		实例名.Read(字节数组,从哪个下标开始存数据,最大存多少);	--Read方法返回一个int类型数据,返回的数据表示读取到的实际有效数据有多少
+		实例名.Write(字节数组,从哪个下标开始存数据,最大存多少);	--Write方法是在前面加数据,而File类是在后面加数据,想要在后面加数据就设置FileMode.Append
+		
+	注:GC虽然强大,但是还是有极少数无法释放的类,其中就包括FileStream类,此类使用完必须关闭并释放
+	
+25.StreamReader和StreamWirter文本流
+	所属空间:using System.IO;
+	
+	声明StramReader语法:
+		StreamReader 实例名 = new StreamReader(path,Encoding);
+		
+	声明StramReader语法:
+		StreamWriter 实例名 = new StreamWriter(path,Encoding);
+		
+	StreamReader属性:
+		实例名.EndOfStream;	--判断是否读取到文件末尾,返回bool类型
+		
+	StreamReader方法:
+		实例名.ReadLine();	--一行行读取文本文件
+		
+	StreamWirter方法:
+		实例名.Write();	--写出文本文件,此方法有好多个重载
+		
+		StreamWriter(路径,bool);	--PS:如果想追加(增加)文本不覆盖掉原来的文本,在StreamWirter时加入True
+		
+26.多态
+	为何要用多态:
+		if(r[i] is Chinese){
+			((Chinese)r[i]).SayHello();
+		}
+		else if(r[i] is British)
+		{
+			((British)r[i]).SayHello();
+		}
+		else if (r[i] is americans)
+		{
+			((americans)r[i]).SayHello();
+		}
+		多次判断太过麻烦,所以出现了一下三种简便的方法
+	
+	1.虚方法
+		(1)将父类的构造方法标记成虚方法,使用关键字Virtual,标记完此方法可以被子类重新写一遍
+		(2)将子类的构造方法加上关键字override,即为重写方法
+		
+	2.抽象类
+		(1)标记一个类为抽象类,使用关键字abstract标记,标记抽象类方法也是用abstract关键字标记
+		(2)抽象方法不允许有方法体:[访问修饰符] abstract 返回类型 方法名();
+		(3)继承的子类中必须复写抽象类中抽象成员,且使用关键字override
+		(4)如果子类也是抽象类,那么就不用复写抽象成员
+		(5)抽象类里也可以写非抽象成员
+		
+	3.接口
+	
+27.C#中的访问修饰符
+	所有访问修饰符:
+		public:公开的
+		private:私有的
+		protected:受保护的,父类和子类可以访问
+		internal:只能在当前项目中访问，同一个项目中,它的作用跟public访问修饰符一样
+		protected internal:protected+internal
+		
+	能够修饰类的访问修饰符只有两个:public、internal
+	
+	可访问性不一致问题:
+		子类访问权限不可大于父类访问权限,否则会暴露父类的成员
+		
+28.值类型和引用类型传递
+	值类型和引用类型存储区别:
+		值类型存储在栈上,而引用类型存储在堆上
+	
+	值类型和引用类型传递:
+		值类型在复制的时候,传递本身的值,两个之间没有联系,值得变动不会改变另一个值;
+		
+		引用类型在复制的时候,传递本身的引用地址,所以其中一个对象改变,另一个也改变;
+												--唯一特殊的就是string类型,string拥有不可变性,跟值类型一样
+												
+29.Process进程类
+	Process方法:
+		GetProcesses();	--获得当前所有进程,返回Process数组
+		Start();	--打开一个进程,需要一个String参数,也就是其进程名
+		
+	process实例化属性:
+		StarInfo = *; 	--设置打开文件,此属性需要传入一个PrecessStartInfo类型变量
+		
+	PrecessStartInfo类型实例化:
+		precessStartInfo 实例名 = new precessStartInfo(String path);	--需要文件的路径
+		
+30.委托
+	用处：方法当参数传递,当返回值返回
+	
+	声明委托关键字：delegate
+	
+	声明委托语法：[访问修饰符] delegate 返回值 变量名(参数列表);
+	
+	委托理解：说白了委托是一个类,只是他可以定义返回值和方法参数列表
+	
+	声明委托类注意事项：必须指定返回值类型和方法参数列表
+	
+	委托签名:可以存到委托内的方法必须跟创建的委托返回值一样,参数列表一样,这个就叫做签名
+	
+	语法糖：在C#中有很多简洁语法,实质是由编译器在编译时转换成完整语法,那么这种简洁语法叫做语法糖
+	
+	委托内部语法糖：委托默认调用Invoke()方法;
+					C#+=：(委托类名)Delegate.Combine(委托对象,new 委托类(this.方法名));
+						↑译为：创建追加一个方法的委托对象,被追加的方法指针存入对象的父类的父类(Delegate)的IntPtr变量中,然后再将新创建的委托添加到委托对象的数组中
+					C#-+：(委托类名)Delegate.Remove(委托对象,new 委托类(this.方法名));
+	声明委托本质：
+				委托编译后：生成一个同名类(委托类名)
+				
+				委托继承关系：委托同名类   ->   MulticastDelegate   ->   Delegate
+				
+				调用委托：调用委托时,其实就是调用委托对象中的Invoke方法遍历委托内部的数组,然后依次调用数组中的方法
+				
+	多播委托：其实每次使用的委托都是一个多播委托,多播委托调用有返回值的方法时,获得最后一个方法的返回值组合的委托必须是同一类型
+				
+	委托当参数用法：委托当参数,传值传相对应返回值类型和参数的方法
+	
+	泛型集合排序时接口的用法:
+		为何要用接口排序:因为如果一个集合里存放的是某个类,而不是整数或者什么其他的字符串类型,那么List.Sort方法就不知道哪个大哪个小,就无法进行排序,因此就得用到接口来告诉该方法哪个才是大的哪个才是小的
+		
+		创建某一个类的泛型集合:List<Dog> ls = new List<Dog>();
+		
+		创建一个类实现接口:public class comparer : IComparer<Dog>
+						   {
+								public int Compare(Dog x, Dog y)	译:该方法是Icomparer的实现接口
+								{
+									return x.age - y.age;	译:返回当前X对象减去当前Y对象的年龄差排大小
+								}
+						   }
+						   
+		比对:ls.Sort(new comparer());	译:此处传递一个接口的实现类对象进去,目的是为Sort排序方法里的比较过程提供一个结果,而这个Sort方法是微软已经写好的,Sort就是一个比较,我们只是调用了Comparer类中的方法进行对比来告诉Sort方法哪个比哪个大,哪个比哪个小,再由Sort方法来排序,简单来说,Sort方法只负责排序,Comparer类中的方法只负责比对
+	
+	泛型集合排序时委托的用法:
+		同上,使用接口排序时其实就是调用了接口内的方法,同样委托排序可以不创建接口类,直接创建方法
+		具体代码:
+			ls.Sort(ComparisonDog);		译:除IComparer接口外,Sort方法还有一个参数叫做Comparison,其内部就是一个委托,传入签名一样的方法,进行比对
+			
+			int ComparisonDog(Dog x, Dog y)		译:在此创建一个跟Sort方法委托签名一样的方法
+			{
+				return x.age - y.age;
+			}
+			
+	委托封装：将委托对象私有化,提供对外的两个增删方法AddClick和RemoveClick
+	
+	委托中保存实例方法和静态方法的区别：
+		实例方法：委托中的实例方法可以访问创建出来的对象的成员变量,委托中的委托参数直接指向该参数的方法表,而没有任何一个实例对象,那么该委托就访问不到该方法中的成员变量,但是委托在编译的时候,会转换成Delegate类,Delegate类中有一个TarGet变量用来存放实例对象,那么也就是说委托接收了整个实例,也就可以调用它内部的成员变量
+		
+		静态方法：静态方法传委托,直接类名称.方法名即可
+	
+   补充：
+		指针：存地址的类型叫做指针,说白了就是存地址的没有区别,指针说的更专业些
+			方法表：方法表就是方法表,对象跟方法表不冲突,对象只是对象,方法表是独立的,也就是比如一个Form对象,f.SayHello(),其实就等于this.SayHello(),当在同一个类中调用方法时this关键字只不过被省略掉了而已,每个方法前面必须跟一个对象,不是当前对象就是实例的对象
+			
+30.泛型委托
+	声明委托语法：public delegate 返回值类型 委托名<T>(T 泛型参数1,T 泛型参数2,....)
+	
+	声明方法语法：public 返回值 GetMax<T>(T 参数1,委托){ 方法体... }
+			
+31.序列化及反序列化
+	用处：在电脑中只有二进制才可以传输,在网络上也是一样,所以想要传输东西必须要变化成二进制传输
+	
+	序列化：将文件转成二进制
+	
+	反序列化：将二进制转换成文件
+	
+	标记可序列化对象语法：在类的上方打[Serializable],[Serializable]译为：指示一个类可以被序列化,此类不能被继承
+	
+	序列化对象语法：
+		
+		//省略声明FileStream对象...
+		
+		实例化BinaryFormatter对象：BinaryFormatter 对象名 = new BinaryFormatter();
+		
+		调用BinaryFormatter序列化方法：对象名.Serialize(FileStream对象名,需要序列化的参数);
+		
+	反序列化语法：
+	
+		//省略声明FileStream对象...
+		
+		实例化BinaryFormatter对象：BinaryFormatter 对象名 = new BinaryFormatter();
+		
+		调用BinaryFormatter反序列化方法：对象名.DEserialize(FileStream对象名,需要序列化的参数);
+		
+32.部分类
+	用处：解决多人开发时的类的重复问题,多个部分类组成一个完整的类。
+	
+	部分类声明语法：[访问修饰符] partial class 类名
+	
+33.密封类
+	用处：在不想被别人继承的时候密封掉
+	
+	密封类声明语法：[访问修饰符] sealed class 类名
+	
+	密封类特征：密封类不得被继承,但可以继承别的类
+	
+34.重写父类的ToString方法
+	用处：所有类型继承object类为父类,ToString方法默认返回该对象所在的命名空间,且ToString方法为虚方法,使用override关键字重写父类方法,已达到自己需要的效果
+	
+35.显示实现接口
+	用处：解决继承接口的类中与接口的方法名重名的问题。
+	
+	显示实现接口方法：返回值 接口名.方法(){方法体};
+	
+	强调：在想要调用接口的方法时，使用接口类为实例对象创建实例,然后.操作符调用同名方法,反之,使用继承的类创建实例调用的为自己本身已重写的方法
+	↓↓↓
+	示例：接口类 JieK = new 接口类();JieK.接口方法();   --输出的为继承类中接口的方法
+		  继承类 JiC = new 继承类();JiC.重写方法();		--输出的为继承类中重写接口的方法
+		  
+36.单例模式
+	用处：类似FeiQ软件一样,只能创建一个FeiQ对象,重复创建将打开已创建好的对象
+	
+	步骤：
+		1)、将窗口构造方法私有化
+		2)、提供一个静态方法,返回一个对象
+		3)、创建单例
+		
+	具体代码：
+			public static Form2 frm2 = null;
+			//省略构造函数
+			public static Form2 GetOneFrom(){
+				if(frm2 == null)
+				{
+					frm2 = new Form2();
+				}
+				retrun
+			}
+
+37.线程
+	所属空间:using System.Threading;
+
+	线程区分:
+		前台线程:
+			当主线程关闭时,前台线程如果没有结束,那么主线程就不能关闭
+		后台线程:
+			当主线程关闭时,后台线程随即结束
+	创建简单线程:
+		Thread 实例名 = new Thread(方法名);	--注:这里的方法名不需要带括号
+		
+	标记线程:
+		实例名.Start();	--标记这个线程,随时可以执行线程,执不执行这个线程,取决于CPU,我们不能调用线程
+		
+	属性:
+		实例名.IsBackground = bool;	--将线程设置成后台线程
+		实例名.Abort();	--终止线程
+		实例名.Sleep();	--延时方法,参数为Int,毫秒
+		
+	注:.Net下,不允许跨线程访问	--解决方案:取消跨线程访问的限制:Control.CheckForIllegalCrossThreadCalls = bool;
+	
+38.创建Xml文档		--可扩展的标记语言,	HTML
+	用处：用于存储数据,相当于微小型数据库,XML用处很广泛,不仅Java用,php也用,等都可通用
+	
+	特点：不用背标签,标签不被固定,随便写
+	
+	所属空间：using System.Xml;
+	
+	创建操作XML文档对象：XmlDocument doc = new XmlDocument();
+		
+	设置XML描述信息：
+				XmlDeclaration dec = doc.CreateXmlDeclaration("1.0","utf-8",null);	--因为XML描述信息只有两个值,所以最后一个填null
+				doc.AppendChild(dec);
+	
+	保存XML文档：doc.Save("Books.xml");		--参数值为XML文档保存的名称
+	
+	创建根节点：
+				XmlElement Books = doc.CreateElement("Books");
+				doc.AppendChild(Book);
+				
+	给根节点Books创建子节点：
+				XmlElement Book1 = doc.CreateElement("Book");
+				Books.AppendChild(Book1);
+	
+	给Book1添加子节点：
+				XmlElement name1 = doc.CreateElement("Name");
+				设置name1显示的元素：name1.InnerText = "水浒传";
+				Book1.AppendChild(name1);
+	
+	XML两个概念：
+		元素：Element,XML里面所有东西都是元素
+		节点：Node,XML里一个个标签都是节点
+		节点与元素的关系：节点包含元素
+	
+	注意：
+		XML是严格区分大小写的。
+		XML标签也是成对出现的。
+		XML必须有一个根节点,只能有一个根节点。
+		当两个人同时做开发一个项目时,VS提示某个XML文档被修改时,务必征求意见其他人意见判断是否
+		
+39.创建带属性的XML文档
+	语法：调用创建的节点对象SetAttribute方法(属性名称,属性值);
+		  例：order.SetAttribute("Name","码表");
+40.追加XML文档
+	语法：调用doc对象.load("文件路径"),通过DocumentElement保存XML根节点,然后根节点使用AppendChild()方法添加即可
+		  添加完记得保存。
+		  
+41.读取XML文档
+	步骤：
+		1)、加载要读取的XML文档
+		2)、获得根节点
+		3)、通过根节点属性ChildNodes所有子节点,返回值XmlNodeList
+		4)、foreach循环 XmlNode item in XmlNodeList,然后通过InnerText属性获取其文本
+		
+42.Socket网络编程
+	端口号：一个端口号对应一个应用程序
+	
+	协议：
+		TCP：安全稳定,一般不会发生数据流失,因为有三次握手,效率相对于低一些
+			TCP的3次握手：在正式通信之前,会先发送三次数据(客户端——>服务器——>客户端),这三次数据全部接收成功后,才开始正式通信
+		
+		UDP：快速,效率高,容易发生数据流失,无握手,不需要服务器的回应,一直发
+		
+	创建监听套接字：Socket sokWatch = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+		详解：AddressFamily为当前IP类型(IP4或者IP6),SocketType为Socket传输类型(文件流),ProtocolType为协议
+		
+	绑定端口：
+		1.创建网络节点对象
+			IPAddress address = IPAddress.Parse(UI界面IP文本框内容)
+				PS：获取IP
+				
+			IPEndPoint endPoint = new IPEndPoint(address,int.parse(UI界面端口文本框内容))
+				PS：获取IP+端口
+		
+		2.绑定网络节点
+			sokWatch.Bind(endPoint)
+			PS：在内部向系统中的端口表中注册了一个端口,指定当前应用程序句柄引用
+			
+	监听队列：
+		sokWatch.Listen(10)
+			PS：每满足10个客户端监听之后需要等待,也就是说最多可以一次性监听几个用户
+			
+	开始监听：
+		sokWatch.Accept()
+			ps：该方法返回一个新的Socket对象用于通信,一个客户端一个Socket通信
+	
+	接收客户端发来的信息：
+		byte[] bf = new byte[1024*1024*2]
+		int r = Sok.Receive(bf)
+		string str = Encoding.UTF8.GetString(bf,0,r)
+		
+	客户端发送给服务端消息：
+		//省略创建负责通信的Socket
+		//省略创建网络节点对象，网络节点的IP和端口须跟服务端一样
+		Sok.Connect(endPoint)
+		byte[] bf = Encoding.UTF8.GetBytes(txt_Message.Text);
+        Sok.Send(bf);
+		
+	注：凡是涉及到网络连接的,都可能抛异常,而我们就需要在可能需要出现异常的地方try起来,让用户感觉该程序根本没有不存在异常
+		
+		
+43.交错数组
+	本质：是一个一维数组,只不过这个一维数组的每个元素又是一个数组
+	
+	交叉数组声明方法：int[][] arr = new int[3][]
+	
+	二维数组生命方法：int[,] arr = new int[1,1]
+		三维：int[,,] arr = new int[1,1,1]
+		四维...五维...六维
+		
+44.ADO事务(在C#中实现事务)
+	语法：
+		Conn.Open();
+		SqlTransaction tran = Conn.BeginTransaction();		--开始事务,制定该语句为一个事务
+		SqlCommand Cmd = new SqlCommand(Sql语句, Conn);
+		Cmd.Transaction = tran;								--指定在Cmd中执行的事务
+		try
+		{
+			Cmd.ExecuteNonQuery();							--如果执行不报错,那么就继续往下进行
+			tran.Commit();									--事务提交
+		}
+		catch (Exception ex)
+		{
+			tran.Rollback();								--执行报错,事务回滚
+		}
+		
+45.事件Event
+	声明语法：
+		[访问修饰符] event 委托对象 变量名
+		
+	事件机制：会自动将修饰的变量改为私有,并同时提供一个add和remove方法
+	
+46.泛型
+	声明泛型语法：
+		1.声明泛型类语法：
+			public class MyList<T>(){
+				...成员
+			}
+			
+		2.声明泛型方法语法：
+			public T AddEle<T>(T a){
+				...方法体
+				T t1 = new T();
+				retrun t1;
+			}
+			
+		上文中T的意思：T只是一个类型占位符,可以随便声明该占位符名称,不止可以叫T
+	
+	
+			
+	约束：
+		1.构造函数约束
+			public class MyList<T>() 					--约束当前泛型必须带一个无参构造函数
+				Where T:new()
+			{
+				...成员
+			}
+		2.约束该类必须是某个类或者是某个类的子类
+			public class MyList<T>()					--不可约束泛型是否继承一个密封类
+				Where T:Dog								--不可用Nullable<T>
+			{											--不可多次约束同一个泛型为某个类的子类
+				...成员
+			}
+		3.约束泛型必须是指定类型
+			public class MyList<T>()
+				Where T:class
+				或者
+				Where T:struct
+			{
+				...成员
+			}
+		
+		4.接口约束
+			public class MyPetPlay<T,Y>
+				Where T:IGetReward<T>
+				Where V:IWalk,ISing<V>
+			{
+				...成员
+			}
+			
+		方法约束和类约束一样:
+			语法：
+				public void AddEle<T>()
+					Where T:new()
+				{
+					...方法体
+				}
+				
+			.net内置的两个常用的类型转换的泛型方法，所有实现了IEnumerable接口的对象都可以调用：
+				Cast<T>: 将源序列转换为指定类型的范型序列；
+				OfType<T>: 将序列中类型为T的数据挑出来，结果以T类型序列返回。
+
+	泛型类的继承：
+		泛型类父类：
+			public class Father<K,V>
+		
+		继承泛型类：
+			1.public class Son<W,Y>:Father<int,string>
+			
+			2.public class Son<W,Y>:Father<W,Y>
+			
+			3.public class Son:Father<int,string>
+			
+			
+	泛型方法的重载：
+		void SayA()
+		{
+		
+		}
+		
+		void SayA<T>()
+		{
+		
+		}
+		
+		注：以上两个方法看似是重载,但其实本质是两个方法,泛型方法如果想重载,那么泛型参数个数必须不一样
+		
+	泛型方法的重写：
+		class Father
+		{
+			public virtual T Shout<T>() where T:new()
+			{
+				retrun new T();
+			}
+		}
+		
+		class Son:Father
+		{
+			public override T Shout<T>()	--因为重写的父类Shout方法,即使该方法的泛型名字和子类不一样也会自动继承父类的约束,所以就不需要了,也没有权限修改当前方法的约束
+			{
+				retrun new T();
+			}
+		}
+		
+47.面向切面编程
+	理论：在方法的前面或者后面执行代码,就叫做面向切面编程
+	
+	ASP管道：会执行20个左右委托对象,这些委托对象在一起被称之为ASP管道
+	
+	Configuration文件：
+		IIS中的两种类型对应的配置文件
+			集成：system.webServer
+			经典：system.web
+			
+		配置文件中在指定程序集中找指定类名：type="C03MyModoule.FirstModule,C03MyModoule"
+		
+48.WebForm过滤器
+	过滤器需实现接口：System.Web.IHttpModoule
+	
+		public void Init(System.Web.HttpApplication Context)
+		{
+			Context.BeginRequest += context_BeginRequest;		--在ASP.Net管道中的第一个方法注册一个事件
+		}
+		
+		void context_BeginRequest(object sender,EventArgs e)	--方法体内容
+		{
+			HttpApplication app = sender as HttpApplication;
+			app.Context.Response.Write("");
+		}
+		
+		注：在Global文件中也可注册方法实现同样的效果
+		
+	配置Web.Config：
+		<system.webServer>
+			<modules>
+				<add name="名称" type="命名空间.类名,程序集名字"
+			</modules>
+		</system.webServer>
+		
+		注：如果不在同一个命名空间下,那么主程序需要引用这个过滤器的命名空间
+		
+	过滤器可实现：伪静态、图片水印(耗性能)、身份验证(该效果要在第9-11个管道事件后验证,否则Session对象还未加载,没有数据)
+
+49.抽象工厂
+	理论：其实还是原本的三层,只不过除了UI层每一层都有一个对照的接口,为了方便当表、数据库、项目环境更改时,不用更改业务逻辑及数据操作层
+	
+	调用规则：
+		UI层不允许直接调用BLL层,则调用IBLL层
+		BLL层不允许直接调用DAL层,则调用IDAL层
+		
+		流程：UI>IBLL>BLL>IDAL>DAL>数据库
+	
+	接口编程的好处：不知道这个方法具体是哪个类实现的
+	
+	运行时将一个对象拿进来的过程叫做：
+		1.IOC：控制反转
+		2.DI：依赖注入
+		
+	工厂类小例子：
+		IBLL>IUser.cs
+			List<User> GetList();
+			
+		BLL>User.cs:Iuser.cs
+			实现接口...
+			
+		BLLA>User.cs:Iuser.cs
+			实现接口...
+		
+		BLLFactory>BLLAbsFactory.cs
+			IBLL.IUser GetUser()
+			{
+				string strtype = System.Configuration.ConfigurationManager.AppSettings["blltype"].tostring();
+				if(strtype == "bll")
+				{
+					retrun new BLL.User();
+				}
+				else
+				{
+					retrun new BLLA.User();
+				}
+			}
+			
+	抽象工厂例子：
+		IBLL>IUser.cs
+			List<User> GetList();
+			
+		BLL>User.cs:Iuser.cs
+			实现接口...
+			
+		BLLA>User.cs:Iuser.cs
+			实现接口...
+		
+		BLLFactory>
+			AbsFactoryBLL.cs
+				public static AbsFactoryBLL GetFatory()
+				{
+					string type = System.Configuration.ConfigurationManager.AppSettings["bllType"].ToString();
+					AbsFactoryBLL bllFactory = null;
+					switch(strtype)
+					{
+						case "bll":
+							bllFactory = new BLLFactory();
+							break;
+						case "blla":
+							bllFactory = new bllFactoryA();
+							break;
+					}
+					retrun bllFactory;
+				}
+				
+				public abstract IBLL.IUser GetUser();
+				public abstract IBLL.IMsg GetMsg();
+			
+			BLLFactory.cs:AbsFactoryBLL
+				public override IBLL.IUsers GetUser()
+				{
+					retrun new BLL.User();
+				}
+				
+				public override IBLL.IMsg GetMsg()
+				{
+					retrun new BLL.Msg();
+				}
+				
+			BLLFactoryA.cs:AbsFactoryBLL
+				public override IBLL.IUsers GetUser()
+				{
+					retrun new BLLA.User();
+				}
+				
+				public override IBLL.IMsg GetMsg()
+				{
+					retrun new BLLA.Msg();
+				}
+		
+	工厂类读取配置文件：
+		1.配置文件：
+			<appSettings>
+				<add key="blltype" value="bll"/>
+			</appSettings>
+			
+		2.读取appSettings节点：System.Configuration.ConfigurationManager.AppSettings["blltype"].tostring();
+		
+50.Css系列-Less
+	变量名：
+		@color:#4D926F;
+		h2{ color:@color + #111; }		--变量加减
+		
+		用变量名定义变量
+			@fnord:"#4D926F";
+			@var:'Fnord';
+			content:@@var;
+			
+		作用域：作用范围越小,优先级越高
+		
+		字符串插值；url("@{变量名}/images/bg.png");
+		
+		样式表中使用JS表达式：
+			@var: `"hello".toUpperCase() + '!'`;	--基本不用,破坏样式布局,并且不安全
+		
+	混合(mixin)：			--用另一个样式实现一个新的样式
+		.myStyle{}
+		h2{ .myStyle }
+		
+		.bordered(@width:1px)	--1px为默认值,该样式加上括号后就不能够在HTML页面的class中使用了,除非再次包装一下
+		{
+			border:@width solid @color;
+		}
+		
+		header
+		{
+			.bordered();		--留空使用默认值
+		}
+		
+		带参混合
+			@arguments变量	--该变量包含了所有传递进来的参数
+			
+			例子：
+				.box-shadow(@x:0,@y:0@blur:1px,@color:#000)
+				{
+							box-shadow:@arguments;
+					   -moz-box-shadow:@arguments;
+					-webkit-box-shadow:@arguments;
+				}
+				官方要求格式：box-shadow对齐
+			
+		带参混合2(重载)：
+			.mixin(@s,@color){...}
+				.class
+				{
+					.mixin(@switch,#888);
+				}
+			.mixin(dark,@color)
+			{
+				color:darken(@color,10%);		--降低10%亮度的color;
+			}
+			.mixin(light,@color)
+			{
+				color:lighten(@color,10%);		--加亮10%亮度的color;
+			}
+			
+			box-shadow中使用mixin：
+				.box-shadow(@x:0,@y:0@blur:1px,@color:#000)
+				{
+					box-shadow:@arguments;
+					.mixin(light,@color);
+				}
+			
+		带参混合3(引导：)：
+			.mixin(@a) when(lightness(@a)>=50%)		--lightness去当前颜色亮度,判断当前@a的亮度是不是大于50%
+			{
+				background-color:black;
+			}
+			
+			.mixin(@a) when(lightness(@a)< 50%)		--判断当前@a的亮度是不是小于50%
+			{
+				background-color:white;
+			}
+			
+			.mixin(@a)
+			{
+				color:@a;
+			}
+	
+	嵌套规则：
+		#header{ h1{} p{ a{ &:hover } }}		--&符号代表本级
+		
+	运算：
+		任何数字、颜色或者变量都可以参与运算
+		
+	导入：
+		@import "lib.less";
+		@import "lib";			--可以不带less后缀
+		
+		@import "lib.css";
+		
+		注：import不建议用,速度非常慢,有这个导入的功夫还不如把所有文件整理压缩成一个大文件
+		
+	函数：
+		Color函数：
+			lighten(@color,10%)；		--增加亮度
+			darken(@color,10%);			--降低亮度
+			saturate(@color,10%);		--增加饱和度
+			desaturate(@color,10%);		--降低饱和度
+			fadein(@color,10%);			--淡入
+			fadeout(@color,10%);		--淡出
+			fade(@color,50%);			--指定透明度
+			mix(@color,@color2);		--混合两个颜色
+			spin(@color,10);			--旋转颜色角度
+			
+		Math函数：
+			round(1.67);	// retruns '2'		--四舍五入
+			ceil(2.4);	//retruns '3'			--向上取整
+			floor(2.6);	//retruns '2'			--向下取整
+			percentage(0.5);	//retruns '50%' --数组转换成百分比
+	
+	命名空间：
+		#bundle{ .button(){} }
+		
+		命名空间引用：#header a{ color:orange; #bundle > .button; }
+	
+	在客户端使用：
+		引入样式文件：
+			<link rel="stylesheet/less" type="text/css" href="styles.less">
+			
+		添加脚本文件：
+			<script src="less.js" type="text/javascript"></script>
+			
+		添加MIME
+			添加多媒体映射：
+			.less	"text/css"
+		
+	在服务器端使用：
+		安装less：
+			npm install less@latest		--@latest最后一个版本
+		
+		使用：
+			lessc styles.less > styles.css
+			
+51.AngularJS(弃坑,脏检查使用越多性能越慢)
+	简介：
+		诞生于2009年,有着诸多特性：MVVM、模块化、自动化双向数据绑定、语义化标签、依赖注入等等
+		MVVM是Model-View-ViewModel的简写。它本质上就是MVC的改进版。MVVM就是将其中的View 的状态和行为抽象化,让我们将视图 UI 和业务逻辑分
+		AngularJS是一个JavaScript框架
+		致力于开发单页面应用程序
+		易于构建页面CRUD操作
+		
+		当网页有频繁交互的时候,设置特效、美化界面的时候,该框架不支持
+		
+	脏检查：
+		脏检查三大主流前端框架中或多或少都会涉及到
+		React：每次产生新的Virtual Dom,与旧的Virtual Dom的diff操作本来就可以看作是一次脏检查
+		Vue：相对彻底的抛弃了脏检查机制,使用Property主动触发UI更新,但Vue仍然不能抛弃track by(用来标记数组元素的Key)
+			新旧track by元素做diff猜测用户的行为,最大可能的减少Dom树的操作。
+		
+		当对象被绑定到html中后，这个对象才会添加为检查对象(watcher),属性也是一样
+		它定时检查而不是直接监听属性变化,我们把这个检查称为摘要周期(digest)
+		也就是你有N个属性绑定,那么就有N个watcher,watcher越多那么性能就越差
+		controller初始化的时候，所有以ng-开头的事件执行后，都会触发脏检查
+		
+	
+	软件设计原则：
+		概念：
+			KISS(keep it simple and stupid)		--保持代码简单精炼,把代码写的小白都看的明白
+			DRY(Don’t repeat yourself)	--编程的最基本原则是避免重复,在程序代码中总会有很多结构,如循环、函数、类等等,避免重复某个语句或概念,及不要出现二义性
+			
+			更多设计原则：https://www.jianshu.com/p/562e28d74349
+						  https://blog.csdn.net/scboyhj__/article/details/47844639
+		
+		编码(五原则)：
+			SRI(单一职责原则)		--一个类尽可能的写的方法越少越好,某个代码的功能,应该保证只有单一的明确的执行任务
+			OCP(应对上面CHANGE的)	--软件（类、模块、函数等）最好是开源的,别人可以基于你的代码进行拓展编写,但却不能修改你的代码
+			LSP( Liskov Substitution Principle 里氏替换原则)		--子类替换父类
+			DIP(Dependence Inversion Principle 依赖倒置原则)		--尽量依赖于抽象,不要依赖于具体的实现
+					PS:何为“倒置”？
+						依赖正置：类间的依赖是实实在在的实现类间的依赖,即面向实现编程,这是正常人的思维方式；
+						而依赖倒置是对现实世界进行抽象,产生了抽象间的依赖,代替了人们传统思维中的事物间的依赖
+			ISP(Interface Segregation Principle 接口隔离原则)		--接口尽量单一
+			YAGNI(You aren’t going to need it 不一定会需要用到它)	--除非你需要它，否则别创建新功能
+			
+		
+	设计模式：
+		创建型
+		结构性
+		行为性
+		...等23种设计模式(自行百度)
+	
+	AngularJS脚本引用：
+		angular.js				--主文件
+		angular-resource.js		--资源
+		angular-route.js		--路由
+	
+	ng-init：
+		初始化应用程序数据
+		
+		基本数据类型：
+			数值
+			字符串
+			对象
+			数组
+			
+		
+		<div data-ng-app="">		--data-ng-app是注解,代表让AngularJS来解析当前DIV,可以留空
+			12 + 3 = {{ 12 + 3}}	--大括号是表达式,和VUE大括号差不多
+		</div>
+		
+		<div data-ng-init="pName='单价';pCount='数量';pTotal='合计';price=10.9;count=5">		--data-ng-init是初始化的意思,里面定义变量,多个变量初始化用;号隔开,也可以输入Json格式
+			{{pName}}:{{price}}
+			{{pCount}}:{{count}}
+			{{pTotal}}:{{price*count}}	--表达式(Vue插值)可以嵌入到HTML里的任何部分,但是脚本不允许嵌入
+		</div>
+		
+		BootStrap列表组<div class="list-group"><div class="list-group-item"></div></div>
+	
+	ng-bind
+		常用于元素单项绑定操作
+		
+		<div data-ng-bind="age"></div>	--官方表示表达式(Vue插值)要比数据绑定效果好,因为更灵活
+		
+	ng-model
+		双向绑定
+		
+		<input type="text" data-ng-model="pName"/>
+	
+	ng-repeat
+		常用语循环生成元素
+		
+		<table class="table">
+			<tr data-ng-repeat="b in books">
+				<td><span data-ng-bind="b.title"></span></td>
+				<td><span data-ng-bind="b.price"></span></td>
+				<td><span data-ng-bind="b.pubdate"></span></td>
+			</tr>
+		</table>
+		
+52.协变和逆变
+	理论：
+		有子类转向父类是协变,有父类转向子类叫逆变
+		支持协变(out)的类型参数只能用在输出位置：函数返回值、属性的get访问器以及委托参数的某些位置
+		支持逆变(in)的类型参数只能用在输入位置：方法参数或委托参数的某些位置中出现。
+
+	委托中的普通协变：
+		public delegate void DGTestFather(Father father);
+		public delegate void DGTestSon(Son Sonobj);
+		
+		public void TestSon(Son sonObj){ ...方法体 }
+		public void TestFather(Father faObj){ ...方法体 }
+		
+		//委托形参是父类时不允许传子类
+		DGTestFather dgTestFather = new DGTestFather(TestSon);
+		dgTestFather(new Father());
+		
+		//委托形参是子类时可以传父类
+		DGTestSon dgTestSon = new DGTestSon(TestSon);
+		dgTestSon += TestFather;
+		dgTestSon(new Son());	--协变体现形式
+		
+	泛型委托中的协变：
+		public delegate void DGTestObj<T>(T Obj);
+		
+		public void TestSon(Son sonObj){ ...方法体 }
+		public void TestFather(Father faObj){ ...方法体 }
+		
+		DGTestObj<Son> dgTestObj = TestSon;
+		dgTestObj = TestFather;
+		dgTestObj(new Son());
+		
+53.反射
+	
+	
+54.AutoFac框架
+	简单Dome：
+		var builder = new ContainerBuilder();		--创建一个 ContainerBuilder 实例用来注册组件
+		注册组件中所用到的类型接口全部已暴露
+		注册组件：
+			//通过接口注册
+			builder.RegisterType<ConsoleLogger>().As<ILogger>();
+								 类型名称			 接口名称
+			//通过接口注册组件并返回实例
+			var output = new StringWriter();
+			builder.RegisterInstance(output).As<TextWriter>();
+									 实例		接口
+			//注册lambad表达式组件
+			builder.Register(c => new ConfigReader("mysection")).As<IConfigReader>();
+			
+			注：不想让AutoFac控制你的生命周期在注册时后面加 ExternallyOwned 方法
+		
+	函数：
+		As：通过哪个类型/接口注册当前组件
+		AsSelf：通过自身注册
+		ResolveOptional：该方法会尝试解析, 但如果服务没有注册, 不会抛出错误. (如果服务成功注册但是无法成功解析, 你依然会得到一个错误.)
+	
+	构造函数：
+		在基于反射注册组件时, AutoFac 会自动为您寻找参数最多的构造方法注册组件
+		
+		指定构造方法：
+			使用 UsingConstructor 函数
+				参数：params type[]
+				
+				实例：builder.RegisterType<Student>().UsingConstructor(typeof(string));
+					  public Student(string Name){
+						...方法体
+					  }
+					  
+					指定函数参数(类型1,类型2,...)
+				
+			注册时传参：
+				builder.RegisterType<Student>().As<IStudent>().WithParameter("Name","张三");
+				builder.Register(c => new Student("张三")).As<IConfigReader>();
+				
+				lambad 不传参方式：
+					builder.Register((c, p) => new Student(p.Named<string>("Name"))).As<IStudent>();	--该p.Named算是占位符
+					var a = Container.Resolve<IStudent>(new NamedParameter("Name","张三"));
+			
+			解析时传参：var Stu = Container.Resolve<Student>(new NamedParameter("Name", "张三"));
+				三种传参方式：
+					new NamedParameter("Name", "张三")					--通过名称匹配目标参数
+					new TypedParameter(typeof(string), "张三"),			--通过类型匹配目标参数（需要精确匹配类型）
+					new ResolvedParameter(								--灵活的参数匹配
+					  (pi, ctx) => pi.ParameterType == typeof(string) && pi.Name == "Name",
+					  (pi, ctx) => 值);
+					  
+		
+	AutoFac生命周期：
+		激活时( OnActivating )：组件在被使用前触发
+			示例：builder.Register(c => new A()).OnActivating(e => e.Instance.B = e.Context.Resolve<B>());		-- Instance 为该组件实例, Context 该组件的构造器
+		
+		激活后( OnActivated )：组件完全构造完成后触发
+			示例：builder.Register(c => new A()).OnActivated(e => e.Instance.B = e.Context.Resolve<B>());
+			
+		释放时( Dispose )：组件被释放时,仅限于该组件被AutoFac接管生命周期的时候触发
+		
+	属性和方法的注入：
+		属性注入：
+			Lambad方式(对象构造器)：builder.Register(c => new A{ B = c.Resolve<B>()});			使用改 builder 注册一个组件 A , A 组件的构造函数中需要一个实例 B
+			
+			支持循环依赖方式：builder.Register(c => new A()).OnActivated(e => e.Instance.B = e.Context.Resolve<B>());
+			
+			反射组件时：builder.RegisterType<A>().PropertiesAutowired();
+			
+			绑定特定的属性和他的值时：builder.RegisterType<A>().WithProperty("PropertyName", propertyValue);

@@ -1,0 +1,76 @@
+1.第一个三层
+	理论：三层只是一个比较好的架构,不是非用三层不可
+	
+	三层指的哪三层：
+		1.界面层UI(User Interface)				--接收结果,提示信息
+		2.业务逻辑层BLL(Business Logic Layer)	--判断结果并返回相关信息给UI层
+		3.数据访问层DAL(Data Access Layer)		--从数据库拿所需要的东西交给BLL进行处理
+		
+		三层连接概念：UI——BLL——DAL
+		PS:实体类就是Model;对数据进行操作的代码写在DAL中,一般就是SQL语句,DAL只有对数据的操作,没有“如果金额大于20则不能删除”这样的逻辑;BLL调用DAL中的代码进行逻辑操作,比如“如果金额大于20则不能删除”。SQL语句、ADO.net的类一般只应该出现在DAL中
+		
+		
+2.类库及动态链接库
+
+	类库：顾名思义,类库就是一堆类的仓库,里面存放一堆类,类本身是不能被执行的
+	
+	动态链接库：一个程序,可以动态的随时调用类库
+	
+3.三层概念
+	1.文件夹：文件夹只是分布习惯，不是定死的
+	2.方法不为静态：一般BLL、DAL里的方法都不是静态,因为如果是静态,程序运行时创建,结束时清除,很占用内存,所以推荐为非静态的方法(为以后工场三层提供扩展)
+	
+	3.三层的优点：
+		1.UI层之和BLL打交道,并不处理SQL语句
+		2.每一层功能非常明确,开发方便
+		3.从Winform改成ASP.net只要修改UI即可
+		
+4.Excel的创建与导出
+	安装：install-package NPOI
+	
+	1.工作本HSSFWorkBook
+		方法：
+			构造方法：无参构造创建一个新的工作本,可以接受一个流用于打开一个现有的工作本
+			CreateSheet(索引)：创建指定索引的Sheet对象
+			GetSheetAt(索引)：根据索引获取Sheet对象
+			CreateCellStyle()：创建单元格样式对象
+			CreateFont()：创建字体对象
+			Write(Stream)：将工作本输出到流中
+	
+	2.工作表HSSFSheet：
+		方法：
+			CreateRow(索引)：创建指定索引的行
+			GetRow(索引)：根据索引获取行
+			AddMergedRegion()：设置合并区域,参数包括开始行索引、开始列索引、结束列索引、结束行索引
+			SetColumnWidth(索引,宽度)：设置指定列的宽度,单位是一个字符宽度的256分之1,PS：一个汉字占用两个字符
+		
+		属性：
+			FirstRowNum、LastRowNum：获取第一行、最后一列的索引值
+			
+	3.HSSFRow：
+		方法：
+			CreateCell(索引)：创建指定索引的行
+			GetCell(索引)：根据索引获取单元格
+			
+		属性：
+			HeightInPoints：指定或设置高度
+			
+	4.单元格HSSFCell
+		方法：
+			SetCellValue()：设置单元格中的值
+			
+		属性：
+			CellValue：获取单元格中指定类型的值,如果类型不匹配则抛异常
+			CellStyle：获取或设置单元格样式
+			
+	5.HSSFCellStyle
+		方法：
+			SetFont(字体对象)：设置字体样式
+		
+		属性：
+			Alignment：水平对齐,1左,2中,3右
+			
+	6.字体对象HSSFFont：
+		属性：
+			FontHeightInPoints：获取或设置字体大小
+			BoldWeight：获取或设置字体加粗

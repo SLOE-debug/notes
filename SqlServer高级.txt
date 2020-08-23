@@ -1,0 +1,476 @@
+1.基础
+	补充数据类型
+	
+		整形：bigint、smallint、tinyint
+		
+		双精度小数：decimal、numeric
+		
+		货币类型：money、smallmoney
+		
+		单精度小数：float、real
+		
+2.SqlParameter
+	用处：用于参数化Sql语句，防止Sql注入漏洞
+	
+	语法：
+		...省略SqlConntion及Sql语句及SqlCommand
+		SqlParameter sp = new SqlParameter("@SNo", "10000");
+			--加@字符,很眼熟,在数据库里的声明变量时用的就是@字符,等于声明了一个变量,而变量值是后面的第二个参数
+			--例：语句select * from Student where StudentNo = @SNo,Sql语句的@SNo里的值对应sp里的@SNo的值
+		Cmd.Parameters.Add(sp);
+			--只实例化一个SqlParameter可不行,要在SqlCommand里的parameters属性内加入此实例化,然后使用SqlCommand的时候会自动将值作为变量传进Sql语句中
+	
+	模糊查询需注意：在语句中定义的变量会根据你的sp里面的值的类型转化为一样的数据类型加入到Sql语句中,该变量不得在定义的语句中加入'或者%模糊查询相关的字符,如果想做到模糊查询,该语法如下↓↓↓
+		--Sql语句：select * from Student where StudentNo = @SNo
+		--sp：SqlParameter sp = new SqlParameter("@SNo", "%"+"10000"+"%");
+			--因为此处我的10000是字符格式,所以不用加'单引号,而%在C#中就是一个普普通通的百分号,以下为错误写法↓↓↓
+		--Sql语句：select * from Student where StudentNo = '%@SNo%'
+		--sp：SqlParameter sp = new SqlParameter("@SNo", "10000");
+		
+3.case函数用法
+	用处：与C#Switch-Case相似,在数据库中与数据比对
+	
+	语法-1：
+		Select					--查询
+		Case					--Case关键字
+		When 列 条件 Then 输出	--判断条件,可多行,说白了就是跟C#里的Case1:Case2:一样
+		End						--End关键字,跟Case关键字一前一后
+		From 表					--查询某张表
+		
+		示例：Select Case When Sex = '男' Then '公的' When Sex = '女' Then '母的' End From Student,该语法类似于if-else,可以使用区间判断,例：Agv >= 60或者是Agv < 20
+		
+	语法-2：
+		Select					--查询
+		Case 列					--Case关键字后面跟一个列名,也就是只Case指定的列
+		When 条件 Then 输出		--判断条件,可多行,说白了就是跟C#里的Case1:Case2:一样
+		End						--End关键字,跟Case关键字一前一后
+		From 表					--查询某张表
+		
+		示例：Select Case Sex When '男' Then '公的' When '女' Then '母的' End From Student,该语法类似于switch,等值判断,例：Case 1:break;或者 Case "郭浩康"：Console.WriteLine("看我不一拳打你脸上个委托！");break;
+	
+	语法-3：
+		Select					--查询
+		Case					--Case关键字
+		When 列 条件 Then 输出	--判断条件,可多行,说白了就是跟C#里的Case1:Case2:一样
+		Else 输出				--以上的When条件都不满足的情况下,输出此结果,等于C#结构中if()-else if()-else if()-else最后的Else
+		End						--End关键字,跟Case关键字一前一后
+		From 表					--查询某张表
+	
+	注：
+		1.Case中也有语法先后顺序性,优先判断第一列依次往后,如果该列满足当前的When,那么就会执行当前的When的Then结果,先后顺序同等于C#中的if-else
+		2.Case中Then后面跟的输出内容类型必须一样,如果类型不同,则强转,Cast(列名 AS 数据类型)--例：Cast(Sorce AS Nvarchar(10))
+	
+	以上语法-1、语法-2两种语法区别：语法-1未指定判断的列,在When中才制定,预先不知道条件;语法-2刚开始就指定了要判断的列,When中直接判断即可,预先大概知道有哪些值;用哪个取决于你需要判断的条件
+	
+	补充SqlServer结果集概念：当使用Select查询语句的时候,查询出来的结果集,可以包含重复的as别名列,但是在ADO中习惯用列名取数据的话,那么就务必避免重名↓↓↓
+		--例：Select Sex,Case When Sex = '男' Then '公的' When Sex = '女' Then '母的' End as 'Sex' From Student
+	
+	特点：未比对上的值将在列中返回Null
+
+4.子查询
+	用处：把一个查询的结果在另一个查询中使用就叫做子查询,标准解释：将一个查询语句做为一个结果集供其他SQL语句使用
+	
+	子查询的基本分类：
+		1.独立子查询：子查询可以独立运行
+		2.相关子查询：子查询中引用了主查询中的结果
+	
+	语法：
+		1.简单子查询：Select * From Student Where GradeId = (Select GradeId From Grade Where GradeName = 'S1')
+			语法详解：被()括住的为子查询,子查询查完的结果返回给外层的查询语句,外层查询语句使用子查询返回结果继续查询,当SqlServer执行查询语句发现()的时候,会先执行括号里面的查询,就如同数学里的乘除加减一样,一般子查询都用到Where条件后面,当然也有特殊的,下面再说
+			
+		2.区间子查询：Select * From Student Where GradeId in (Select GradeId From Grade Where GradeId > (Select GradeId From Grade Where GradeName = 'S1'))
+			语法详解：在这里我们用了三个查询语句,其中包括2个子查询语句,语句中的in原本为Select * From Student Where GradeId in (2,3),但是我们第一个子查询返回的GradeId不止一个值,所以用in括起来,第一个子查询查询的结果返回的就是括号中的2,3
+		
+		3.
+		
+	错误语法：
+		错误语句：Select * From Student Where GradeId = (Select GradeId From Grade Where GradeName = 'S1')
+		错误信息：在选择列表中只能指定一个表达式。
+		错误解释：在子查询中返回的多个列,外层查询语句并不知道是用哪个列来查询
+	
+	In、Exists、Not In、Not Exists关键字：
+		In：判断一个值,是否在括号中所有值内出现过
+		Not In：判断一个值,是否在括号中所有值内没有出现过
+	
+	注意：只有在子查询中返回的结果是一行一列的时候,才能使用主查询的等值判断,包括 < > >= <= = <>
+	
+5.Sql变量
+	用处：变量就是变量,没什么好解释的,你要是连变量都不知道是啥,那就放弃吧,别学这个了
+	
+	变量种类：局部变量、系统变量
+	
+	局部变量与系统变量的区别：
+		1-局部变量：局部变量以@为标记来声明,先声明,再赋值,在指向服务器的链接内（一个连接等于一个程序）,定义的变量,叫做这个链接,也可以叫做这个程序的变量
+		1-系统变量：系统变量以@@为标记来声明,系统变量由系统来定义和维护,我们只能够读取,不能够修改
+	
+	声明变量语法：DECLARE @变量名 变量类型		--DECLARE为声明变量的关键字
+		示例1-声明变量：DECLARE @Num int
+		示例2-声明变量并赋值：DECLARE @Num int = 3
+		注意：变量的默认值是Null,而C#里会有相应的数据类型默认值,Sql则相反
+		
+	设置变量值方式：
+		1.Set关键字：Set @Num = 10
+		2.Select关键字：Select @Num = 20
+		
+	常见系统变量：
+		1.@@ERROR：最后一个T-Sql错误的错误号			--当多个错误时,该系统变量的记录是最后一个错误的类型编号,例：207语法错误编号,一个编号代表一种错误,所以在这里就不详解了,以后在事务中会用到错误编号
+		2.@@IDENTITY：最后一次插入的标识值				--执行一个有标识列表的插入,该系统变量就会保存这次插入的标识列的值
+		3.@@ROWCOUNT：受上一个SQL语句影响的行数			--就是上一次语句受影响的行数,没什么说的
+		4.@@ServerName：本地服务器名称					--该系统变量存储的就是本地服务器的名字
+		5.@@Version：SqlServer的版本信息				--本地SqlServer的名字
+		6.@@Language：当前使用的语言的名称				--就是输出语言名称,没别的
+		7.@@Max_Connections：可以创建的同时连接的最大数	--每台服务器,同时可以创建的Connections数量是该系统变量的数量,是有限的,所以我们要在Connections创建打开后关闭
+		8.@@Transcount：当前连接打开的事务数			--留空,学事务时补充
+		注意：重要程度从上到下
+		
+	系统变量取值方式：print @@version	--不是随便的一个变量,必须双@@字符,如果是系统变量他会变成紫红色
+				
+	变量取值方式：
+		1.Print关键字：Print 变量名		--示例：Print @Num,在这里只能有一个值,没有多个值的写法
+		2.Select关键字：Select 变量名	--示例：Select @Num,2,3,Num是变量,2和3是常量
+	
+	变量在Select查询中赋值方式：select @Num = GradeId from Student where StudentNo = 10002
+		注意：当你的变量等于的那一个列中有多个值的话,它会一次次赋值,后者顶替前者,一直赋到最后一个值得时候停下,变量里的值就变成了列中最后的值
+	
+	变量在Select查询中使用方式：select * from Student where GradeId = @Num
+		注意：在Select查询中使用前必须给变量赋值,否则没结果,不报错
+	
+6.文件组
+	用处：对数据文件的管理单元，即文件的集合、
+	
+	创建文件组语法：alter database 数据库名 add filegroup 文件组名
+		示例：alter database love add filegroup 财务部
+		
+	创建文件并将文件放入文件组语法：alter database 数据库名 add file(name='xxx',filename='文件的物理路径',size='初始大小',maxsize="最大大小',filegrowth=步长)
+		示例：alter database love add file(name='love_n2',filename='c:\love_n2.ndf') to filegroup 财务部
+		
+	指定表和文件组之间的关系语法：create table 表名(xxxxxx) on 文件组
+		示例：create table renshi(id int not null,name varchar(50) not null, salary money not null) on 财务部
+	
+	删除文件组语法：alter database 数据库名  remove filegroup 文件组名
+		注意：
+			1. 删除所有放置在文件组中的表
+			2. 删除文件组中文件sp_helpdb 数据库名
+			3. 删除文件组
+		示例：
+			1.drop table renshi
+			2.alter database love remove file love_n2
+			3.alter database love remove filegroup 财务部
+	
+	特点:
+		1. 一个数据库至少一个文件组,当数据库创建成功后,将自动创建文件组(primary文件组).
+		2. 文件组只能存放数据文件(mdf,ndf),ldf文件不能放入到文件组中.
+		3. 一旦文件加入到文件组，不能切换文件组了。
+		
+7.SqlServer中的if-else
+	用处：跟C#一样呗,判断的
+	
+	语法区别：
+		if()	--保留
+		{		--替换Begin
+		
+		}		--替换End
+		else	--保留
+		{		--替换Begin
+		
+		}		--替换End
+		
+	PS：其他语法自己配合着用
+	
+8.SqlServer中的While
+	用处：与C#一样,没什么说的
+	
+	语法区别：
+		while()	--保留
+		{		--替换Begin
+		
+		}		--替换End
+
+9.Exists关键字、not Exists关键字
+	用处：在子查询中取到的数据跟主查询做匹配,匹配到输出,否则没结果
+	
+	Exists语法：
+		1.select * from Student where exists (select * from Grade where Student.GradeId = Grade.GradeId)
+			语法详解：where后面没有任何列,直接使用关键字exists对后面的子查询做匹配,子查询中需指定A表某一列跟B表某一列的关系,子查询只做匹配,不做任何输出
+			执行过程：拿到子查询中一行之后跟主表中每一行数据做匹配,直到子查询每一行都被拿走做匹配之后,返回结果集
+		  
+		2.if exists(查询)
+			语法详解：如果exists内的查询查出来的结果集的行数大于1行(包括等于一行),那么就返回True,否则返回false
+	
+	Not Exists语法：跟Exists语法一样,只是在SQL语句中把所有Exists换成了Not Exists而已
+	
+10.视图
+	用处：方便查询,一般情况下对视图不进行增删改,但不代表就不可以做增删改
+	
+	理论：
+		1.视图其实就是一个虚拟表,这张表的数据来自一个查询,这个查询查询了其他一个或者多个表的数据,当我们查询一个视图的时候,其实就是查询视图的查询的结果集,这个结果集里有什么,就只能显示什么
+		2.视图的操作跟数据表没有什么区别,但两者的差异是其本质是不同：数据表是实际存储记录的地方,然而视图并不保存任何记录
+		3.相同的数据表,根据不同用户的不同需求,可以创建不同的视图(不同的查询语句)
+	
+	创建视图语法：Create view 视图名称	As	Select StudentNo,StudentName,Sex,[Address] From Student
+		语法详解：As后面跟的是一个查询语句,这个查询语句就是这个视图的结果集,其实每个视图中装的都是一个SQL查询语句,而当我们查询这个视图的时候,执行过程就是：查询视图语句——>视图中的SQL查询语句——>返回结果集
+		
+	视图增删改：
+		增改语法与数据表用法一样,删除肯定会影响多张表的数据,所以删除是不可以的
+		增改注意事项：
+			1.在不影响多张表的前提下,而是影响一张表的情况下,语句是可以用的
+			2.一次整改,操作只能针对一张表,新增进去的数据,不能违反原始数据表的约束
+	
+	优点：筛选表中的数据、防止未经许可的用户访问敏感数据、降低数据库的复杂程度
+	
+	注意：
+		1.视图中不可以使用order by关键字,但是把视图当做一张表来查询的时候是可以使用的
+		2.视图目前很少用
+		
+11.分页
+	用处：通过想要的ID并查询一个区间的数据,比如我只想要ID为10-20的数据
+	
+	语法：
+		1.简易分页：
+			示例：Select top 10 * From Student Where StudentNo in (Select top 20 StudentNo From Student order by StudentNo desc)
+			语法详解：其实看自身理解能力了,in括住的子查询中取到的是前20条数据,也就是ID为0-20的学生信息,但是后面排序是倒序排列,所以ID变成了20-0,主查询中去的只有前10条数据,那么查出来的结果为20-10,当然主查询后面也可以继续排序
+			
+		2.Row_Number函数：
+			语法：Select * From(Select *,Row_Number() Over(排序) as 别名 From 表名) as 结果集别名 Where 结果集别名.Over函数别名 between ? and ?
+			示例：Select * From(Select *,Row_Number() Over(order by StudentNo) as StuN From Student) as T Where T.StuN between 1 and 10
+			语法详解：Over函数是用于排列ID用的,而结果集别名就是一个别名,跟表明一样,返回的结果集也就是一个表,那么我们当然可以对一个表来做查询,Where条件就是结果集中的某个列而已
+			注意：Row_Number函数就是在结果集中间上了一列,从1开始排列,中间不会间断,配合Between and使用效率比较高
+			
+	注意：一般Row_Number函数用的最多,简易分页快被淘汰了
+	
+12.事务
+	用处：用于杜绝上一行语句约束出错,后一行语句还是会执行的问题
+	
+	事务：
+		关键字：
+			1.开始关键字(告诉数据库事务启动,准备执行)：Begin TranSaction
+			2.回滚事务(放弃事务,放弃事务中的语句操作--失败)：RollBack TranSaction
+			3.提交事务(提交、保存修改--成功)：Commit TranSaction
+	
+	创建简单事务语法：
+		Begin TranSaction			--开始事务
+		update Student set Sex = '男' where StudentNo = 10001	--执行语句
+		if(@@Error > 0)				--查看该系统变量上一次执行的语句是否是错的,如果不是,那么该系统变量为0
+		Begin						--大括号
+			RollBack TranSaction	--回滚事务
+		End							--大括号
+		Else						Else
+		Begin						--大括号
+			Commit TranSaction		--提交事务
+		End							--大括号
+		
+	关于判断事务是否执行成功或失败了：if(@@Error > 0)Begin 回滚事务 End Else Begin 提交事务 End
+			注意：@@Error系统变量存储的是上一次语句执行发生的错误编号,如果事务中有多条语句,那么一定要注意@@Error值得变化,也就是说,只要事务中最后一条语句可以执行,那么这个事务绝对成功！
+			
+13.索引
+	用处：方便查询,提高数据库效率,但是占用内存
+	
+	索引分类：
+		1.聚集索引：主键就相当于一个聚集索引,聚集索引就相当于字典里的ABCD,在数据库中特征就比如A-啊、B-白、C-才、……,索引列跟数据列在同一行
+			语法：create Unique Clustered index 索引名称 on 表(列) With fillfactor = 90(填充因子值,默认90,根据不同可以设置不同的值)
+		2.非聚集索引：非聚集索引在数据库中的特征就相当于字典中的部首,部首(一)在索引中排在第一位,然而在数据中排在最后,因为他是Y字母开头的发音,索引列跟数据列不在同一行
+			语法：create NonClustered index 索引名称 on 表(列) With fillfactor = 90(填充因子值,默认90,根据不同可以设置不同的值)
+		3.唯一索引：唯一性,对等值查询很有利,一个表中可以有多个唯一索引
+			语法：create Unique index 索引名称 on 表(列) With fillfactor = 90(填充因子值,默认90,根据不同可以设置不同的值)
+		
+		注意：索引可以指定多个列
+		
+	建立索引原则：
+		1.经常检索(Where)的列
+		2.不经常改变的列
+		3.数据差别大
+		
+14.存储过程
+	用处：与C#方法相同
+	
+	理论：存储在数据库里面的处理数据的过程(一堆SQL语句)
+		
+	创建存储过程语法：create proc(全称：PROCEDURE) 存储过程名称 as begin SQL语句 end
+		示例：create proc GetStu
+			  as 
+			  select * from Student
+			  
+		修改存储过程示例：Alter proc GetStu 
+						  as 
+						  select * from Student
+						  
+		带参数的存储过程：create proc GetStu 
+						  参数1,
+						  参数2,
+						  ……
+						  as 
+						  select * from Student
+						  
+		带返回值的存储过程：create proc GetStu 
+							参数1,
+							参数2 output,
+							……
+							as 
+							select * from Student
+		
+		注意：存储过程中如果语句过多,那么最好加上begin end开始结尾
+			示例：create proc GetStu as begin …… end
+	
+	执行(调用)存储过程语法：
+		1.exec(全名：execute) 存储过程名	--该语法相当于在C#调用了一个没有参数,没有返回值的方法
+			示例：exec GetStu
+		2.调用一个有参数的语法：
+			1.exec 存储过程名 参数1,参数2
+				示例：exec GetStu 1,'李四'
+			2.exec 存储过程名 存储过程参数名1 = 参数1,存储过程参数名2 = 参数2
+				示例：exec GetStu @XueHao = 1,@Name = '李四'
+	
+			调用注意：
+				1.如果不指定某个参数等于什么值,那么必须按照自定义存储过程中的参数列表的类型进行传对应类型的值
+				2.如果在自定义存储过程中没有指定一个变量的默认值,那么这个参数必须传,否则报错,相反可以不传这个参数
+					声明变量默认值：@Number int = 0
+		3.调用一个带返回值带参数的存储过程：
+			1.定义的变量@Num
+			  exec 存储过程 参数1,@Num OutPut
+			2.定义的变量@Num
+			  exec 存储过程 参数1,参数2 = @Num OutPut
+			注：该变量类型必须跟参数类型一致
+		4.C#调用存储过程：其他语法一样,不一样的地方在于在声明SqlCommand指定comStr.CommandType属性为CommandType.StoredProcedure
+			示例：Cmd.CommandType = CommandType.StoredProcedure
+			
+	系统存储过程：
+		1.由系统定义,存放在master数据库中
+		2.名字以sp_或xp_开头,自定义的存储过程可以以usp_开头
+		常用系统存储过程：
+			1.sp_databases：列出服务器上的所有数据库
+			2.sp_renamedb：更改数据库的名称
+			3.sp_tables null,''：返回当前环境下可查询的对象的列表
+			4.sp_columns：回某个表列的信息
+			5.sp_help：查看某个表的所有信息
+			6.sp_helpconstraint：查看某个表的约束
+			7.sp_helpindex：查看某个表的索引
+			8.sp_password：添加或修改登录账户的密码
+			9.sp_helptext：显示默认值、未加密的存储过程、用户定义的存储过程、触发器或试图的实际文本
+			10.sp_helpdb：报告有关指定数据库或所有数据库的信息
+			11.sp_stored_procedures：列出当前环境中的所有存储过程
+			注意：重要程度从上到下
+			
+	自定义存储过程：由用户在自己的数据库中创建的存储过程
+	
+	存储过程位置：当前库-可编程性-存储过程
+	
+	优点：
+		1.执行速度更快-在数据库中保存的存储过程SQL语句都是编译过的
+		2.允许模块化程序设计-类似方法的复用
+		3.提高系统安全性-防止Sql注入
+		4.减少网络流通量-只要传输存储过程的名称
+		
+15.临时表
+	用处：在处理巨大的两表链接的数据的时候,筛选出来的一些数据我们只用一次,断开连接就用不到了,所以数据库就推出了临时表这种东西
+	
+	临时表分类：
+		1.局部临时表
+			解释：只允许创建临时表的当前连接访问,当创建临时表的链接删除后,该临时表自动被删除
+			创建语法：create table #表名(列)
+			
+		2.全局临时表
+			解释：允许多个连接访问,当创建临时表的链接删除后并且其他链接不再访问时,该临时表自动被删除
+			创建语法：create table ##表名(列)
+			
+		注意：临时表增删改查与普通表相同
+		
+16.约束
+	 1.主键约束 PK_student
+		 ALTER TABLE Students
+		 ADD CONSTRAINT PK_StuId PRIMARY KEY(StuId) --将stuid设为主键
+	 2.默认约束 defauLt DF_Address
+		 ALTER TABLE Students
+		 ADD CONSTRAINT DF_StuAddress DEFAULT('地址不详') FOR StuAddress
+	 3.检查约束 CK_StuAge
+		 ALTER TABLE Students
+		 ADD CONSTRAINT CK_StuAge CHECK(StuAge>0) --将stuage设置为检查约束
+	 4.添加唯一约束 UQ_StuPhone
+		 ALTER TABLE Students
+		 ADD CONSTRAINT UQ_StuPhone UNIQUE(StuPhone) --将stuphone设置为唯一约束
+	 5.添加主键约束 PK_DeptId
+		 ALTER TABLE Department1
+		 ADD CONSTRAINT PK_DepId PRIMARY KEY(DeptId) --将deptid设置为主键 
+	 6.添加外键约束
+		 ALTER TABLE Students
+		 ADD CONSTRAINT FK_DeptId FOREIGN KEY(DeptId) 
+		 REFERENCES Department1(DeptId) --主表是 系别表 从表是students表
+	 7.添加唯一约束（deptname）
+		 ALTER TABLE Department1
+		 ADD CONSTRAINT UQ_DeptName UNIQUE(DeptName)
+	 删除约束
+		 ALTER TABLE 表
+		 DROP CONSTRAINT 约束名
+		
+	 添加列：
+		 ALTER TABLE Department1
+		 ADD 列名 类型
+		 
+	 删除列：
+		 ALTER TABLE Department1
+		 Drop Column 列名
+		 
+17.触发器
+	用处：自动化操作,减少手动操作的出错率(内部执行代码完全一样的),一般都会拿触发器做日志
+	
+	理论：
+		1.触发器是一种特殊类型的存储过程,但不能传参数,由系统自动调用
+		2.触发器可以用于SQL约束、默认值和规则的完整性检查,还可以完成难以用普通约束实现的复杂性功能
+		3.默认的表中是没有触发器的
+		4.根据业务需求,再增删改之后我们需要做什么
+		5.after和for都是在增删改执行的时候执行另外的sql语句
+		6.instead of是取代原来的操作,简单点来说,就是你执行语句触发到insead of触发器的时候就会替代你执行的语句变成insead of里的语句
+		7.尽量避免在触发器中执行耗时操作,因为触发器会与SQL语句认为在同一个事务中。(事务不结束,就无法释放锁)
+		8.避免在触发器中做复杂操作,影响触发器性能的因素比较多(如：产品版本、所使用架构等等),要想编写高效兼容的触发器考虑因素比较多(边写触发器容易,编写复杂的高性能触发器难)
+		
+	触发器类型：
+		1.DML触发器：
+			1.insert、delete、update(不支持select)
+			2.after触发器(for)、instead of触发器(不支持before触发器)
+			DML事件是指在表或视图中对数据进行的 insert、update、delete 操作的语句。
+			
+		2.DLL触发器：create table、create database、alter、drop...
+		  DDL事件是指在表或索引中的 create、alter、drop 操作语句。
+		
+	声明触发器语法：
+		1.Create Trigger 触发器名称 on 表名
+		  after 操作表类型(insert、delete、update)
+		  as
+		  begin
+		  
+		  end
+		  
+		2.Create Trigger 触发器名称 on 表名
+		  for 操作表类型(insert、delete、update)
+		  as
+		  begin
+		  
+		  end
+		
+		3.Create Trigger 触发器名称 on 表名
+		  instead of 操作表类型(insert、delete、update)
+		  as
+		  begin
+		  
+		  end
+		  
+		PS：触发器命名规范(该规范由本人自定义,你们也可以自己定自己认为好的)：TG_触发器类型(after、for、instead of)_表名_on_操作表类型(insert、delete、update)
+	
+	补充：
+		1.sp_who				--SqlServer登录日志
+		2.select SYSTEM_USER	--当前用户名
+		
+18.Inserted表和Deleted表
+	用处：配合触发器使用
+	
+	Inserted表：表内包含的就是上一次操作新增的数据,Insert和Update触发器会用到,一个SQL语句触发一次触发器
+		无触发器使用方式：insert into Grade output instead.列名 values('Y4'),('Y5')						--前提是插入的表中不能有触发器
+	
+	Deleted表：表内包含的就是上一次操作删除的数据,Deleted和Update触发器会用到,一个SQL语句触发一次触发器
+		无触发器使用方式：delete from Grade output deleted.列名 where GradeName in ('Y4','Y5')			--前提是删除的表中不能有触发器
+	
+	Update表：update表中inserted表输出的是改变后的数据和deleted表输出的是改变前的数据
+		无触发器使用方式：
+			1.update Grade set GradeName = 'Y2' output inserted.列名 where GradeName = 'Y2'				--前提是更新的表中不能有触发器
+			2.update Grade set GradeName = 'Y2' output deleted.列名 where GradeName = 'Y2'				--前提是更新的表中不能有触发器
+	
+19.
