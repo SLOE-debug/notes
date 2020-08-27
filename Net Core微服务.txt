@@ -122,11 +122,89 @@
 	
 	配置：
 		服务实例注册
-			
-		服务端发现
-		客户端调用
+			代码：
+				ConsulClient client = new ConsulClient(c =>
+				{
+					c.Address = new Uri("http://localhost:8500");		//请求的consul地址一般默认端口号为8500
+					c.Datacenter = "dc1";
+				});
+
+				var service = new AgentServiceRegistration()
+				{
+					ID = "mlbz" + Guid.NewGuid(),
+					Name = "mlbz",						//这个name等于consul中的分组名称
+					Address = configuration["ip"],		//ip以及下面的port来自控制台输入
+					Port = int.Parse(configuration["port"]),
+					Check = new AgentServiceCheck()		//健康检查
+					{
+						DeregisterCriticalServiceAfter = TimeSpan.FromSeconds(5),	//健康检查失效后多长时间取消登记
+						Interval = TimeSpan.FromSeconds(10),//健康检查时间间隔，或者称为心跳间隔
+						HTTP = $"http://{configuration["ip"]}:{configuration["port"]}/api/health/Index",//健康检查地址
+						Timeout = TimeSpan.FromSeconds(5)		//过期时间
+					}
+				};
+				client.Agent.ServiceRegister(service).Wait();
+				lifetime.ApplicationStopping.Register(() =>
+				{
+					client.Agent.ServiceDeregister(service.ID).Wait();//服务停止时取消注册
+				});
+		服务端发现：启动：consul即可
 		
-5.Docker部署
+		客户端调用
+			代码：
+				ConsulClient client = new ConsulClient(c =>
+				{
+					c.Address = new Uri("http://localhost:8500");
+					c.Datacenter = "dc1";
+				});
+				var response = client.Agent.Services().Result.Response.ToArray();	//此处获得的就是服务器的键值对列表
+				
+			
+			负载均衡策略：
+				轮询：
+					private static int Idx = 0;//定义静态变量,每次加1
+					
+					Idx = Idx == response.Length - 1 ? 0 : Idx;
+					var service = response[Idx++];
+					string Addres = $"http://{service.Value.Address}:{service.Value.Port}/Summary";
+				
+				平均(随机)：
+					service = response[new Random().Next(0, response.Length)];
+		
+				权重：
+					服务注册时把Tags当做权重：
+						AgentServiceRegistration()
+						{
+							...
+							Tags = string[]{ configuration["wight"] }
+							...
+						}
+						
+					客户端调用时：
+						List<KeyValuePair<string, AgentService>> ls = new List<KeyValuePair<string, AgentService>>();
+						foreach (var item in response)
+						{
+							var Count = int.Parse(item.Value.Tags?[0]);
+							for (int i = 0; i < Count; i++)
+							{
+								ls.Add(item);
+							}
+						}
+						service = ls[new Random().Next(0, ls.Count)];
+
+5.网关(路由)				
+	Ocelot(负责转发请求、负载均衡)：
+		建一个Core WebApi项目：
+			注册服务	services.AddOcelot();
+			添加中间件	app.UseOcelot();
+			
+			Program类下CreateHostBuilder方法添加Host方法.ConfigureAppConfiguration(c=>{c.AddJsonFile("configuration.json", optional: false, reloadOnChange: true);})
+		
+			configuration.json文件内容请参照https://ocelot.readthedocs.io/
+	
+	
+
+6.Docker部署
 	Kestrel：精简的httpServer,处理http请求字符串的类库dll文件
 	
 	虽好,但不够用,只是个简单版的,生产环境不可直接用

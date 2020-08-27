@@ -33,7 +33,7 @@
 	
 	UseDefaultFiles：
 		指定默认起始页,要特别注意顺序, UseDefaultFiles 必须在 UseStaticFiles 之前,否则会提示出错
-		他会根据这些名字查找默认文件 [index.html、index.htm、default.html、default.html] ,不区分大小写
+		他会根据这些名字查找默认文件 [index.html、index.htm、default.html、default.htm] ,不区分大小写
 		如果没有找到上述文件,那么不好意思404错误
 	
 	UseFileServer：

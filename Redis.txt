@@ -111,5 +111,4 @@
 				DECR key：减一
 					DECRBY key 减量值：指定每次减去的值
 				append key value：该命令为指定的Key追加至末尾,如果不存在,为其赋值
-				
 		
