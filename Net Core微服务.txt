@@ -201,8 +201,36 @@
 			Program类下CreateHostBuilder方法添加Host方法.ConfigureAppConfiguration(c=>{c.AddJsonFile("configuration.json", optional: false, reloadOnChange: true);})
 		
 			configuration.json文件内容请参照https://ocelot.readthedocs.io/
-	
-	
+		
+		Ocelot缓存：
+			引入包：Ocelot.Cache.CacheManager
+			
+			注册服务：services.AddCacheManager(x=>{x.WithDictionaryHandle();  //默认字典缓存})
+			
+			配置文件：ReRoutes:[ { "FileCacheOptions": { "TtlSeconds": 15, "Region": "somename" } } ]
+				
+			自定义缓存：
+				services.AddSingleton<IOcelotCache<CachedResponse>, CustomCache>();
+				
+				自定义缓存类：
+					class CustomCache : IOcelotCache<CachedResponse>		//实现接口,可以整合成redis分布式
+		
+		服务治理：
+			超时处理：
+				引入包：Ocelot.Provider.Polly
+				
+				注册服务：services.AddPolly()
+				
+				配置文件：ReRoutes:[ { "QoSOptions": { "TimeoutValue": 4000 }} } ]
+
+			熔断：
+				配置文件：ReRoutes:[ { "QoSOptions": { "ExceptionsAllowedBeforeBreaking": 3, "DurationOfBreak": 1000, "TimeoutValue": 4000 }} } ]
+
+			限流：
+				配置文件：ReRoutes:[ { "QoSOptions": { "ExceptionsAllowedBeforeBreaking": 3, "DurationOfBreak": 1000, "TimeoutValue": 4000 }} } ]
+
+			请求聚合：
+				配置文件：ReRoutes:[], "Aggregates": [{"RouteKeys": ["Tom","Laura"],"UpstreamPathTemplate": "/","Aggregator": "FakeDefinedAggregator"}]
 
 6.Docker部署
 	Kestrel：精简的httpServer,处理http请求字符串的类库dll文件
