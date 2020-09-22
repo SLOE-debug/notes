@@ -232,7 +232,14 @@
 			请求聚合：
 				配置文件：ReRoutes:[], "Aggregates": [{"RouteKeys": ["Tom","Laura"],"UpstreamPathTemplate": "/","Aggregator": "FakeDefinedAggregator"}]
 
-6.Docker部署
+6.用户认证(ids4)
+	认证策略
+		Session共享：做一个服务器,只用来存session
+		会话粘滞：属于一个IP的客户端都发往同一个服务器
+		请求携带：请求中携带用户信息,每个服务模块进行认证
+		ids4-JWT:该方式是ids4做鉴权中心,返回ToKen(不对称可逆加密,公钥(服务模块解密使用,该值为鉴权中心提供)---私钥(鉴权中心加密使用))
+
+7.Docker部署
 	Kestrel：精简的httpServer,处理http请求字符串的类库dll文件
 	
 	虽好,但不够用,只是个简单版的,生产环境不可直接用

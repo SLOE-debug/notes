@@ -46,7 +46,6 @@
 			  },
 			})
 			
-			@Component({})			--指定以typescript的形式修饰Vue组件
 			export class User {		--导出类
 			  @ApiPropertyOptional({ description: '用户名', example: '张三' })		--Api接口文档注解字段
 			  @prop(				--修饰字段为属性,并定义数据库表中的字段

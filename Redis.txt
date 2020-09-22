@@ -111,4 +111,134 @@
 				DECR key：减一
 					DECRBY key 减量值：指定每次减去的值
 				append key value：该命令为指定的Key追加至末尾,如果不存在,为其赋值
+	
+	其他类型命令请参考reids文档：
+	
+5.Redis管道操作
+	//获取redis连接对象
+		ConnectionMultiplexer redis = ConnectionMultiplexer.Connect("192.168.2.8:6379");
+		var db = redis.GetDatabase();
+	//创建管道
+		var pipe = db.CreateBatch();
+	//该List为结果列
+		List<Task<long>> ls = new List<Task<long>>();
+	//为age自增10000次
+		for (int i = 0; i < 1000; i++)
+		{
+			ls.Add(pipe.StringIncrementAsync("qq"));
+		}
+	//运行管道
+		pipe.Execute();
+		pipe.WaitAll(ls.ToArray());
+	//输出结果
+		foreach (var item in ls)
+		{
+			Console.WriteLine(item.Result);
+		}
+	//释放资源
+		redis.Close();
+		redis.Dispose();
+	
+6.Redis事务
+	Redis的事务对的会成功,错误的还是错误,并不会影响前面成功的
+	
+	开启事务
+		开启事务,执行一系列的命令,命令不会立即执行,会放在一个队列中,如果你执行了事务,那么这个队列中的命令将全部执行,如果取消事务,那么这个队列中的命令全部作废
+		开启事务：multi
+		输入要执行的命令：该命令将被放入到队列中
+	执行事务
+		exec
+	取消事务
+		discard
+		
+	注：redis的事务想发挥事务功能,需要配置watch监听机制
+	
+	在开启事务之前,先通过watch监听一个key或多个,在开启事务之后,如果有其他客户端修改了我监听的key,事务会自动取消,等同于乐观锁
+	如果执行了事务或者取消了事务,watch监听自动消除
+	
+7.Redis的持久化AOF配置
+	AOF想对比RDB持久化来说,AOF前期占用空间小(但保存的速度比RDB慢),而后期AOF文件将越来越大(传输困难),AOF保存的不是二进制文件,而是保存所有写操作到文本文件,直接打开可以看懂
+	AOF相对RDB更安全,官方建议同时开启RDB和AOF,以防数据丢失,同时开启时当redis服务器宕机重启后,会优先选择加载AOF文件
+	如果先开启RDB,再开启AOF,如果RDB执行了持久化,那么RDB文件中的内容会被AOF覆盖掉
+	
+	appendonly yes						--开启AOF持久化
+	appendfilename "appendonly.aof"		--AOF文件的名称
+	--AOF持久化执行的时机
+	#appendfsync always					--每执行一个写操作立即持久化,性能比较低
+	appendfsync everysec				--每秒执行持久化
+	#appendfsync no						--根据操作系统以及环境的不同,将在一定的时间内执行一次持久化,时间不确定s
+	
+8.Redis避免主从master单点故障(哨兵模式)
+	
+	哨兵配置：
+		daemonize yes		--哨兵是否后台启动
+		sentinel monitor 名称 localhost 6379 2	--指定master节点的ip和端口(主)
+		sentinel monitor 主节点名称 主节点IP(127.0.0.1) 6379 2	--指定master节点的ip和端口(从)
+		sentinel down-after-milliseconds 主节点名称 10000	--哨兵每隔多久监听一次redis架构
+		
+	三个sentinel.conf文件:
+		sentinel1.conf(该文件作为master,相同)
+			daemonize yes
+			sentinel monitor master localhost 6379 2		--master名称随便起
+			sentinel down-after-milliseconds master 30000
+		sentinel2.conf(从机)
+			daemonize yes
+			sentinel monitor master master 6379 2			--此处两个master必须和主机相同
+			sentinel down-after-milliseconds master 30000	
+		sentinel3.conf(和sentinel2一样)
+	
+	docker-compose.yml
+		services:
+        redis1:
+                image: redis
+                restart: always
+                container_name: redis1
+                ports:
+                       - 3000:6379
+                volumes:
+                        - ./conf/redis1.conf:/usr/local/redis/redis.conf		--此处不可省略为.conf/redis1.conf:/usr/local/redis/redis.conf,否则redis.conf将是一个文件夹
+                        - ./conf/sentinel1.conf:/data/sentinel.conf				--该处注意事项同上
+                command: ["redis-server","/usr/local/redis/redis.conf"]
+        redis2:
+                image: redis
+                restart: always
+                container_name: redis2
+                ports:
+                        - 3001:6379
+                volumes:
+                        - ./conf/redis2.conf:/usr/local/redis/redis.conf
+                        - ./conf/sentinel2.conf:/data/sentinel.conf
+                links:
+                        - redis1:master
+                command: ["redis-server","/usr/local/redis/redis.conf"]
+        redis3:
+                image: redis
+                restart: always
+                container_name: redis3
+                ports:
+                        - 3002:6379
+                volumes:
+                        - ./conf/redis3.conf:/usr/local/redis/redis.conf
+                        - ./conf/sentinel2.conf:/data/sentinel.conf
+                links:
+                        - redis1:master
+                command: ["redis-server","/usr/local/redis/redis.conf"]
+
+	
+	每个redis执行命令：redis-sentinel sentinel.conf
+
+8.Redis集群
+	集群是在主从以及哨兵的基础之外,提升redis存储数据的能力
+	
+	特点：
+		redis集群无中心,没有主从机制,每一个节点都是一个普通的redis
+		Ping-Pang机制,A节点向B节点发送一个消息,B节点返回,即创建连接,反之B节点没有返回,那么A节点将认为B节点挂掉了,该机制是为了投票机制
+		投票机制是A向B发送消息,B没有返回,那么A将向C发送消息,要C去访问B,如果B还是没有返回,那么现在票数是两票,票数多的话,那么就认为B宕机
+		redis的集群节点数量必须是2n + 1
+		redis集群中默认分配了16384个hash槽,在存储数据时,会将key进行crc16算法,并且对16384取余,根据最终结果,将key-value存放到执行的redis节点中
+		为了保证数据的安全性,每个集群的节点,至少要跟着一个从节点,从节点负责实时同步数据,然后当主节点挂掉时,从节点顶替上位
+		如果集群时当A节点被访问的次数过多,那么就针对该节点搭建主从,并不会受到任何影响
+		当redis集群中,超过半数的节点宕机后,redis集群就瘫痪了
+		
+	
 		
