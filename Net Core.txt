@@ -133,7 +133,7 @@
 				注册服务：
 					services.AddAuthentication("Bearer")		--开启 Bearer 验证
 						.AddJwtBearer(b =>		--注册JWT服务
-						b.TokenValidationParameters = new TokenValidationParameters()	--参数效验配置
+						b.TokenValidationParameters = new TokenValidationParameters()	--参数效验配置,一般像这些配置信息都会写在配置文件中以方便配置
 						{
 							ValidateIssuerSigningKey = true,	--是否开启对数字签名的效验
 							ValidateIssuer = true,				--是否开启对颁发者的效验
@@ -149,6 +149,29 @@
 			
 			注意事项：因为 JWT 和 Net Core 内置的 Claim 字段名会有冲突,Net Core 中 Claim配置映射 会将 JWT 中的 Payload 的字段名替换掉,在注册 JWT 服务之前加上这么一行代码 JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear() 取消 Net Core 的映射
 			
+		依赖注入：
+			IOC控制反转：该名词指的是一种思想
+			DI依赖注入：该名词指的是实现IOC的一种设计方法
+			
+			三种注入方法：
+				构造函数注入
+				属性注入
+				方法注入
+				
+			三种生命周期注册注意要保持一致
+				AddTransient：每次注入都会创建一个转瞬即逝的服务
+				AddScoped：是按范围创建的,在Web应用程序中,每个请求都会创建一个独立的服务范围
+				AddSingleton：应用级别的单例服务,这通常意味着它们在每个应用程序只创建一次,然后用于整个应用程序生命周期
+			
+			依赖注入的好处：
+				只修改配置文件,不重启服务器
+				减少代码量：在类中需要实例的对象封装成属性,注入进来
+				防止重构：添加或者修改功能只需要修改配置
+				忽略内部复杂依赖：不用再去管更深层次的依赖
+				管理生命周期：防止内存泄露
+				单元测试：Mock
+				方便代理：配合AOP
+				
 5.属性路由
 	[Route("[controller]")]
     public class AboutController

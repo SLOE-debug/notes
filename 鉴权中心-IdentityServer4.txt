@@ -1,0 +1,55 @@
+1.基础
+	ids4中JWT的关联：ids4是一个框架,JWT是其中的一部分,除了JWT还有另一种 Reference ToKen
+	
+	访问令牌：可以理解为一个临时的出入证
+		Access Token
+		令牌和密码是类似的
+		令牌是短期的,可撤销的,具有一定范围的
+		
+	刷新令牌：获取 Access Token 的令牌
+		Refresh Token
+		可以随时控制访问权限,因为是新的 Access Token
+		
+	Scope(范围)：作用域,一般情况下 Api 只需一个作用域,但是在某些情况下,您可能希望细分 Api 的功能,并允许不同的客户端访问不同的部分
+	
+	OAuth 2.0
+		OAuth 2.0 是一种授权协议,允许用户让第三方来访问服务端的资源
+		客户端会使用用户在服务端登录时返回的 ToKen 来不止一次的请求服务端的 API 当然这些 API 可能就不止 查询
+		
+		执行过程：我要在CSDN上使用QQ登录,并且要将QQ的昵称头像,个人签名同步到CSDN上,那么我选择QQ登录,输入密码并点击登录,在右侧点击复选框选择要同步的项,这么一个过程叫做授权,那么这时候CSDN就可以访问QQ站点上的东西,可能还会获取增删改的权限
+	
+	OpenID
+		OpenID 是一种认证协议,它只认证,不授权
+		客户端只让服务端告诉他,这个人你是不是你的人, 然后的事情就不用服务端管了
+		
+		执行过程：我在CSDN上使用QQ登录,但是我并不想让CSDN获取我的昵称头像等信息,我只需要让CSDN知道我是谁,其他的用户信息让CSDN自己生成
+	
+*.踩到的坑
+	谷歌浏览器登录无法跳转问题以及使用混合验证模式出现关联失败问题：
+		因为谷歌5.1开始新增了一个 SamSite 属性 用来防止 CSRF 攻击和用户追踪。因为新增的属性导致 IDS4 认证有问题,无法使用 http 协议的客户端接入 IDS4
+		
+		解决方案：https://community.abp.io/articles/patch-for-chrome-login-issue-identityserver4-samesite-cookie-problem-weypwp3n IDS4端和MVC端都要设置
+	
+	IDS4 接入外部程序 无效的重定向URI 问题：
+		解决方案： 在 Config 文件中配置 Client 时 RedirectUris 属性必须含有一项 http://localhost:5001/signin-oidc 但是当实际跳转时 该项优先级最低
+	
+	使用 Microsoft.AspNetCore.Authentication.JwtBearer 做验证的时候报错
+		解决方案：在 ConfigureServices 方法下配置 IdentityModelEventSource.ShowPII = true;
+		
+	用户授权页点击不同意报错 error_uri is null
+		解决方案：在客户端配置 OnRemoteFailure 事件
+			代码：
+				options.Events = new Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectEvents()
+                    {
+                        //配置远程故障事件
+                        OnRemoteFailure = context =>
+                        {
+                            if (context.Failure.Message.IndexOf("error_uri is null") >= 0)
+                            {
+                                context.Response.Redirect("/Home/NotConsent");
+                            }
+                            //停止对该请求的所有处理并返回给客户端
+                            context.HandleResponse();
+                            return Task.FromResult(0);
+                        }
+                    };
