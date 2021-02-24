@@ -1,0 +1,257 @@
+1.承载服务
+	IIS承载：IIS中承载将使用app.config文件
+	
+	应用程序承载：
+		// Step 1: 创建一个URI作为基地地址。
+		Uri baseAddress = new Uri("http://localhost:3569/GettingStarted/");
+		// Step 2: 创建ServiceHost实例。
+		ServiceHost selfHost = new ServiceHost(typeof(CalculatorService), baseAddress);
+		// Step 3: 添加服务端点。
+		selfHost.AddServiceEndpoint(typeof(ICalculator), new WSHttpBinding(), "CalculatorService");
+		// Step 4: 使元数据交换。
+		ServiceMetadataBehavior smb = new ServiceMetadataBehavior();
+		smb.HttpGetEnabled = true;
+		selfHost.Description.Behaviors.Add(smb);
+		// Step 5: 启动服务。
+		selfHost.Open();
+		Console.WriteLine("服务已经准备好。");
+		// 关闭ServiceHost以停止服务。
+		Console.WriteLine("按<Enter>终止服务。");
+		Console.WriteLine();
+		Console.ReadLine();
+		selfHost.Close();
+		
+2.接口协定
+	对接口装饰 ServiceContract 属性 来表示 该接口被 WCF 视为接口协定 可供客户端调用
+	对方法装饰 OperationContract 属性 来表示 该方法 被 WCF 视为一个 Web 服务方法
+	消息模式：
+		单向模式：设置 OperationContract IsOneWay 的属性为True 表示该方法为单向模式 此时该方法不能有返回值、out、ref
+		请求-答复模式：默认装饰 OperationContract 的方法都是该模式 该模式有返回值
+		双工协定：
+		    终结点 binding 类型为 wsDualHttpBinding
+			双工协定由客户端和服务器之间的两个单向协定组成，并且不需要方法调用是相关的
+			在原有的基础上创建一个 Callback 的回调接口
+				public interface ICalculatorDuplexCallback
+				{
+					[OperationContract(IsOneWay = true)]
+					void Equals(double result);
+					[OperationContract(IsOneWay = true)]
+					void Equation(string eqn);
+				}
+			在原接口的 ServiceContract 属性上添加 CallbackContract 属性指定回调接口
+				[ServiceContract(CallbackContract=typeof(ICalculatorDuplexCallback))]
+				public interface ICalculatorDuplex
+			
+			在原接口的实现类中添加回调接口类型的变量
+				ICalculatorDuplexCallback callback = OperationContext.Current.GetCallbackChannel<ICalculatorDuplexCallback>();
+				实现类中即可调用 callback 方法 将在客户端执行
+				
+			客户端上调用方法：
+				先通过 ICalculatorDuplexCallback 接口实现类, 并实现类中的方法
+				public class CallbackHandler : ICalculatorDuplexCallback
+					...实现接口方法,该方法调用方在 WCF 服务中
+				
+				// 构造InstanceContext以处理回调接口上的消息。
+				InstanceContext instanceContext = new InstanceContext(new CallbackHandler());
+				// 创建一个客户端。
+				CalculatorDuplexClient client = new CalculatorDuplexClient(instanceContext);
+	
+	非接口协定：
+		原接口协定：
+			[ServiceContract]
+			public interface IMath  
+			{  
+				[OperationContract]
+				double Add(double A, double B);  
+			  
+				[OperationContract]  
+				double Multiply (double A, double B);  
+			}
+			MathService 实现接口
+		
+		非接口协定(及服务类协定)：
+			[ServiceContract]
+			class MathService  
+			{  
+				[OperationContract]  
+				public double Add(double A, double B) { return A + B; }  
+				[OperationContract]  
+				private double Multiply (double A, double B) { return A * B; }  
+			}
+
+4.数据协定
+	对 类或结构装饰 DataContract 属性 来表示该类型具有数据协定
+	对 类或结构中的属性、字段或事件装饰 DataMember 属性 来表示为数据成员 如果应用于静态成员，则将忽略该属性
+	
+	[OperationContract]  
+    float GetAirfare(Itinerary itinerary, DateTime date);  
+  
+    [DataContract]  
+    public class Itinerary  
+    {  
+        [DataMember]  
+        public string fromCity;  
+        [DataMember]  
+        public string toCity;  
+	}
+	
+	偶尔 DataContract 不足以序列化您的类型 还可以选择 XmlSerializer 序列化
+	[ServiceContract]  
+	public interface IAirfareQuoteService  
+	{  
+		[OperationContract]  
+		[XmlSerializerFormat]  
+		float GetAirfare(Itinerary itinerary, DateTime date);  
+	}
+	public class Itinerary  
+	{  
+		...
+		[XmlAttribute]  
+		public bool isFirstClass;  
+	}
+	
+5.使用消息协定描述消息
+	消息协定：参数和返回值都是协定的类 且成组合出现 参数不能为多个只能是一个
+	
+	[ServiceContract]
+	public interface IAirfareQuoteService  
+	{  
+		[OperationContract]  
+		GetAirfareResponse GetAirfare(GetAirfareRequest request);  
+	}
+	 
+	[MessageContract]		--消息协定类装饰器
+	public class GetAirfareRequest
+	{  
+		[MessageHeader] public DateTime date;  		--MessageHeader SOAP 标头装饰器
+		[MessageBodyMember] public string Content;  --MessageBodyMember SOAP 正文部分的成员装饰器
+	}
+	
+	[MessageContract]  
+	public class GetAirfareResponse{
+		[MessageBodyMember] public string Result;
+	}
+	
+	以上代码在Client端会变成
+		string GetAirfare(DateTime data,string Content); 返回值是 Result 这个消息协定算是把类拆开了变成参数化 就非常流批
+	
+	定义消息协定：
+		[MessageContract]  
+		public class BankingTransaction  
+		{  
+		  [MessageHeader] public Operation operation;  
+		  [MessageHeader] public DateTime transactionDate;  
+		  [MessageBodyMember] private Account sourceAccount;  
+		  [MessageBodyMember] private Account targetAccount;  
+		  [MessageBodyMember] public int amount;  
+		}
+		
+		使用此类型作为操作参数时，会生成以下的 SOAP 信封：
+			<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">  
+			  <s:Header>  
+				<h:operation xmlns:h="http://tempuri.org/" xmlns="http://tempuri.org/">Deposit</h:operation>  
+				<h:transactionDate xmlns:h="http://tempuri.org/" xmlns="http://tempuri.org/">2012-02-16T16:10:00</h:transactionDate>  
+			  </s:Header>  
+			  <s:Body xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">  
+				<BankingTransaction xmlns="http://tempuri.org/">  
+				  <amount>0</amount>  
+				  <sourceAccount xsi:nil="true"/>  
+				  <targetAccount xsi:nil="true"/>  
+				</BankingTransaction>  
+			  </s:Body>  
+			</s:Envelope>
+	
+	MessageHeader和MessageBodyMember属性：
+		Namespace：控制该标头/正文在SOAP信封中的命名空间 默认：http://tempuri.org/
+		Name：控制该标头/正文在SOAP信封中的显示名称 默认：属性名称
+		ProtectionLevel：指示标头/正文是否应进行数字签名和加密
+		
+		若要取消包装元素，请将 IsWrapped 属性设置为 false
+	
+	对于数组的消息协定
+		用默认的 MessageHeader 协定
+			 [MessageHeader] public DepositRecord[] records;
+			 
+			 <records>  
+			  <DepositRecord>Record1</DepositRecord>  
+			  <DepositRecord>Record2</DepositRecord>  
+			  <DepositRecord>Record3</DepositRecord>  
+			</records>  
+		
+		MessageHeaderArrayAttribute 协定
+			[MessageHeaderArray] public DepositRecord[] records;
+			
+			<records>Record1</records>  
+			<records>Record2</records>  
+			<records>Record3</records>
+			
+			注：MessageHeaderArrayAttribute 只应用于数组，而不应用于集合
+			
+		字节数组并不被视为数组 而被视为一种特殊的基元类型 在生成的 XML 中表示为 Base64 编码的数据
+	
+	性能方面：
+		多个标头/正文合并成一个标头/正文
+		[MessageContract]  
+		public class BankingTransaction  
+		{  
+		  [MessageHeader] public Operation operation;  
+		  [MessageBodyMember] public Account sourceAccount;  
+		  [MessageBodyMember] public Account targetAccount;  
+		  [MessageBodyMember] public int amount;  
+		}
+		
+		请使用此代码：
+		[MessageContract]  
+		public class BankingTransaction  
+		{  
+		  [MessageHeader] public Operation operation;  
+		  [MessageBodyMember] public OperationDetails details;  
+		}  
+		  
+		[DataContract]  
+		public class OperationDetails  
+		{  
+		  [DataMember] public Account sourceAccount;  
+		  [DataMember] public Account targetAccount;  
+		  [DataMember] public int amount;  
+		}
+
+6.使用流描述消息
+	当传输大型二进制数据时(及buff数组) MTOM消息编码是一个备选的编码策略 将该绑定的 MessageEncoding 属性设置为 Mtom
+		<bindings>  
+		  <wsHttpBinding>  
+			<binding name="ExampleBinding" messageEncoding="Mtom"/>  
+		  </wsHttpBinding>  
+		</bindings>
+	
+	只有在终结点交换超过 1 KB 二进制数据的消息时，才应对终结点启用 MTOM
+	
+	启用流模式：
+		启用方式：
+			服务方法需满足条件：
+				只能有一个参数 那就是流形参 且只有一个返回值
+				参数和返回值的类型中至少有一个必须是 Stream, Message 或 IXmlSerializable
+				
+			必须在绑定上启用流处理。 设置 TransferMode 属性，可以采用下面的值之一：
+				1.以流模式发送和接受请求，以缓冲模式接受和返回响应 (StreamedRequest)。
+				2.以缓冲模式发送和接受请求，以流模式接受和返回响应 (StreamedResponse)。
+				3.在两个方向均以流模式发送/接收请求/响应 (Streamed).
+				4.可以通过将传输模式设置为 Buffered 来禁用流模式
+				
+				appconfig方式：
+					<bindings>  
+					  <basicHttpBinding>  
+						<binding name="BasicHttpBinding" transferMode="Streamed"/>  
+					  </basicHttpBinding>  
+					</bindings>
+				支持流模式的Bind
+					BasicHttpBinding
+					NetTcpBinding
+					NetNamedPipeBinding
+					WebHttpBinding
+					
+				代码方式：
+					 new BasicHttpBinding() { TransferMode = TransferMode.Streamed }
+					 
+7.使用 Message 类描述消息
+	高级方案
