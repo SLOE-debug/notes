@@ -91,4 +91,4 @@
                     vid.srcObject = obj.stream;
                 }
 				到此就可以通讯了 此实例用的是 WebSocket 服务器当的打工仔(信令服务器)
-				
+				代码见：https://github.com/SLOE-debug/WebRTC
