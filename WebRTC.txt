@@ -1,0 +1,94 @@
+1.WebRTC 基础
+	信令服务器：
+		两个设备之间建立WebRTC连接需要使用信令服务器来解决如何通过Internet连接它们
+		信令服务器不需要理解或解释信令数据的内容
+		简单来讲就是说A端需要知道B端的地址 怎么访问他 B端需要知道A端的地址 怎么访问他 中间需要有一个传话人
+		我们可以用 websocket 传话 或者是 Ajax 也可以
+	
+	ICE：
+		交互式连接建立 它被用在两端之间的连接 这个协议让两端能够互相找到对方并建立一个连接
+		即便它们都使用了网络地址转译(NAT)去跟内网的其他设备共享了一个公网IP地址
+		
+		简单来讲 这个框架会寻找最低延迟的路径去链接两端 UDP=>TCP/HTTP=>TCP/HTTPS=>中继器／TURN
+	
+	理论：
+		WebRTC为 点对点通讯 顾名思义 点对点 也就是 A用户==B用户 之间通话
+		那么咱们实现两个用户
+			var pc1 = new RTCPeerConnection() 这是 A用户
+			var pc2 = new RTCPeerConnection() 这是 B用户
+			
+		咱们先来了解信令服务器 也别把信令服务器想的那么难
+			信令服务器在此的作用是传话的 当 A用户 要打电话给 B用户 时 那么A用户需要知道B用户的连接地址以及使用什么编码方式通讯
+			此时A用户发消息给信令服务器说 我要给B用户打电话
+				A用户将从 navigator 获取到的流信息 添加到流通道中
+					pc1.addStream(stream)
+				A用户通过 createOffer 方法来创建一个连接(可以说是分享链接吧)
+					pc1.createOffer().then((offer)=>{
+						调用 createOffer 方法后 会返回一个 Promise<RTCSessionDescriptionInit> offer 变量就是一个连接对象(他指定了将由什么方式/编码来传输视频流) 我们称他为 SDP
+						return pc1.setLocalDescription(offer) 设置pc1连接相关的本地描述
+					}).then(()=>{
+						设置完 pc1 的本地描述后 那么我们要将 SDP 也就是 pc1 的 LocalDescription JSON字符串化发给信令服务器
+						ws.send(JSON.stringify({
+                            name: "pc1",
+                            target: "pc2",
+                            sdp: pc1.localDescription
+                        }))
+					})
+					
+				此时A用户发给信令服务器 信令服务器经过判断发给指定的(我们这里写死了是 pc2)用户
+				
+				B用户收到了消息 那么此时要设置远程端描述
+				咱们假设Msg变量为收到的消息 Msg里包含 name target sdp 属性
+					pc2.setRemoteDescription(Msg.sdp).then(()=>{
+						pc2 设置了远程端描述还不算完 因为A用户还不知道它收到了消息 他需要再让信令服务器给A用户传话 说 我收到了
+						pc2 通过 createAnswer 方法 创建一个答案 (也可以叫回应 回答 无所谓)
+						pc2.createAnswer().then((answer) => {
+							那么此处的 answer 是属于 pc2 的描述 所以我们要设置 pc2 的本地描述
+							pc2.setLocalDescription(answer).then(()=>{
+								我们将这个回答发送给信令服务器
+								ws.send(JSON.stringify({
+                                name: "pc2",
+                                target: "pc1",
+                                sdp: pc2.localDescription
+                            }))
+							})
+						})
+					})
+				
+				A用户怎么接收B用户发回来的响应呢
+				咱们再次假设Msg变量为收到的消息
+					pc1 设置远程端描述
+					pc1.setRemoteDescription(conn.sdp)
+				
+				到此还不算完 因为之前咱们提到的ICE还没有说。 pc1 和 pc2 之间通过什么协议通讯 她们还没有商议
+					那么怎么来商议呢？
+						pc1.onicecandidate = (e) => {	这个方法会在 pc1 妄想(想要 嘿嘿开个玩笑)商议的时候 被调用
+						if (e.candidate) { 如果 e.candidate 有值 那么咱们又用到了打工仔 信令服务器 咱们来告诉另一方我想用什么协议通讯
+								ws.send(JSON.stringify({
+									type: 'ICE',
+									candidate: e.candidate,
+									targetICE: pc.name === 'pc1' ? 'pc2' : 'pc1' 此处的pc.name为 人为指定的 pc1.name = 'pc1' pc2.name = 'pc2'
+								}))
+							}
+							如果e.candidate为空 那么代表 所有的协议 我都跟另一方商议了  他都不同意 那么视频流将无法传输
+						}
+					那么问题又来了 商议如果都同意了的话 怎么处理
+					咱们再再次假设Msg变量为收到的消息
+						那么 通过 Msg.candidate 可以得到想要商议的值
+						var candidate = new RTCIceCandidate(Msg.candidate)
+						if (Msg.targetICE === 'pc1') {
+                            pc1.addIceCandidate(candidate).catch(err => {})
+                        } else {
+                            pc2.addIceCandidate(candidate).catch(err => {})
+                        }
+				
+				你以为完了？不 还有
+				onaddstream事件为B用户接收到视频流事件 咱们来注册一下
+				pc2.onaddstream = function (obj) {
+                    var vid = document.createElement("video");
+                    vid.setAttribute("autoplay", "autoplay");
+                    document.body.appendChild(vid);
+                    vid.srcObject = obj.stream;
+                }
+				到此就可以通讯了 此实例用的是 WebSocket 服务器当的打工仔(信令服务器)
+				
