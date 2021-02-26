@@ -14,8 +14,17 @@
 	理论：
 		WebRTC为 点对点通讯 顾名思义 点对点 也就是 A用户==B用户 之间通话
 		那么咱们实现两个用户
-			var pc1 = new RTCPeerConnection() 这是 A用户
-			var pc2 = new RTCPeerConnection() 这是 B用户
+			var config = {
+				iceServers: [			// 视频流服务器数组 用于外网状态下 传输视频流
+				  {
+					urls: "turn:134.175.227.69:3478",	// 协议类型(turn/stun):服务器地址:服务器端口 只有 turn 协议才需要设置用户名和密码
+					username: "SLOE",		// 用户名
+					credential: "mgdowoqu741",	// 密码
+				  },
+				]
+			}
+			var pc1 = new RTCPeerConnection(config) 这是 A用户
+			var pc2 = new RTCPeerConnection(config) 这是 B用户
 			
 		咱们先来了解信令服务器 也别把信令服务器想的那么难
 			信令服务器在此的作用是传话的 当 A用户 要打电话给 B用户 时 那么A用户需要知道B用户的连接地址以及使用什么编码方式通讯
@@ -39,7 +48,9 @@
 				
 				B用户收到了消息 那么此时要设置远程端描述
 				咱们假设Msg变量为收到的消息 Msg里包含 name target sdp 属性
-					pc2.setRemoteDescription(Msg.sdp).then(()=>{
+					咱们把传过来的sdp对象给创建成一个 RTCSessionDescription 对象 因为 object 对象和 RTCSessionDescription 对象根本不一样 如果将 object 对象 直接设置进去不会报错，但是没效果
+					var desc = new RTCSessionDescription(msg.sdp)
+					pc2.setRemoteDescription(desc).then(()=>{
 						pc2 设置了远程端描述还不算完 因为A用户还不知道它收到了消息 他需要再让信令服务器给A用户传话 说 我收到了
 						pc2 通过 createAnswer 方法 创建一个答案 (也可以叫回应 回答 无所谓)
 						pc2.createAnswer().then((answer) => {
@@ -57,8 +68,10 @@
 				
 				A用户怎么接收B用户发回来的响应呢
 				咱们再次假设Msg变量为收到的消息
+					咱们还是得把传过来的sdp对象给创建成一个 RTCSessionDescription 对象
+					var desc = new RTCSessionDescription(msg.sdp)
 					pc1 设置远程端描述
-					pc1.setRemoteDescription(Msg.sdp)
+					pc1.setRemoteDescription(desc)
 				
 				到此还不算完 因为之前咱们提到的ICE还没有说。 pc1 和 pc2 之间通过什么协议通讯 她们还没有商议
 					那么怎么来商议呢？
