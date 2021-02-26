@@ -58,7 +58,7 @@
 				A用户怎么接收B用户发回来的响应呢
 				咱们再次假设Msg变量为收到的消息
 					pc1 设置远程端描述
-					pc1.setRemoteDescription(conn.sdp)
+					pc1.setRemoteDescription(Msg.sdp)
 				
 				到此还不算完 因为之前咱们提到的ICE还没有说。 pc1 和 pc2 之间通过什么协议通讯 她们还没有商议
 					那么怎么来商议呢？
