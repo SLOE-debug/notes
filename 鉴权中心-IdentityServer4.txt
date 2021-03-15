@@ -12,26 +12,338 @@
 		
 	Scope(范围)：作用域,一般情况下 Api 只需一个作用域,但是在某些情况下,您可能希望细分 Api 的功能,并允许不同的客户端访问不同的部分
 	
-	OAuth 2.0
-		OAuth 2.0 是一种授权协议,允许用户让第三方来访问服务端的资源
-		客户端会使用用户在服务端登录时返回的 ToKen 来不止一次的请求服务端的 API 当然这些 API 可能就不止 查询
-		
-		执行过程：我要在CSDN上使用QQ登录,并且要将QQ的昵称头像,个人签名同步到CSDN上,那么我选择QQ登录,输入密码并点击登录,在右侧点击复选框选择要同步的项,这么一个过程叫做授权,那么这时候CSDN就可以访问QQ站点上的东西,可能还会获取增删改的权限
+	OpenID（鉴权）：该方式就和在博客园微信登录一样
+		去博客园注册账户时 选择微信登录 那么将跳转到微信网页 
+		输入密码/扫码 认证 登陆成功微信给你返回 用户标识 也就是 OpenID
+		博客园通过OpenID自动注册账号 到此 OpenID(鉴权) 结束
+		再想登录博客园时 继续 微信登录 再次鉴权 这时博客园免去 自动注册流程
+		流程：
+			博客园=>选择微信登录=>微信账号登陆成功，返回OpenID=>通过 OpenID 注册账号=> OpenID 流程完成
 	
-	OpenID
-		OpenID 是一种认证协议,它只认证,不授权
-		客户端只让服务端告诉他,这个人你是不是你的人, 然后的事情就不用服务端管了
+	OAuth2.0（授权）：比如说 博客园现在要获取微信用户的个人信息
+		请求微信授权给博客园可以访问用户个人信息的权限 将权限信息加密成令牌
+		博客园拿着这个令牌去访问微信Api 微信再验证令牌 没问题返回用户信息
+		该方式有些弊端
+			当该令牌泄露时 任何人拿着该令牌都可以访问到 用户个人信息 微信端并不认证用户 他只认这个令牌可不可以访问 用户信息 Api 接口
+			在任何时候 博客园都可以拿着 该令牌 请求微信的 用户信息 Api 或 XXXX Api接口
+		流程：
+			博客园=>选择微信登录=>微信账号登陆成功，返回令牌=>博客园通过令牌访问微信 Api =>微信内部验证令牌，没问题返回结果=>OAuth 完成
 		
-		执行过程：我在CSDN上使用QQ登录,但是我并不想让CSDN获取我的昵称头像等信息,我只需要让CSDN知道我是谁,其他的用户信息让CSDN自己生成
+	OIDC(Openid Connect 鉴权+授权)：将 OpenID 和 OAuth2.0 结合起来 鉴定是否本站用户及是否拥有本站权限 和 授权可以访问本站XXApi的权限
 	
+	最基本的IDS4项目文件
+		/Config.cs
+		/xxxxxxxx.csproj
+		/Program.cs
+		/Startup.cs
+
+2.使用客户端凭据保护API
+	前提是通过以下链接创建好了Core IDS4应用程序
+	https://identityserver4.readthedocs.io/en/latest/quickstarts/1_client_credentials.html#setting-up-the-asp-net-core-application
+	定义API范围：
+		API是您系统中要保护的资源
+		如果您将在生产中使用它，请给您的API取一个逻辑名称，这一点很重要。
+		开发人员将使用它通过您的身份服务器连接到您的api。它应该以简单的方式向开发人员和用户描述您的api。
+		在Config 类文件中
+		public static IEnumerable<ApiScope> ApiScopes =>
+            new ApiScope[]
+            {
+                new ApiScope("api1","madebazi Api")
+            };
+		
+	定义客户：
+		定义访问新API的客户端应用程序
+		在Config 类文件中
+		public static IEnumerable<Client> Clients =>
+            new Client[]
+            {
+                new Client
+                {
+                    ClientId = "client",
+                    AllowedGrantTypes = GrantTypes.ClientCredentials,   //没有交互用户，使用clientid/secret进行身份验证
+                    ClientSecrets =
+                    {
+                        new Secret("这里填写加密的密码，像这样，巴拉巴拉，什么的也不是不可以，其实，我就是加密密码".Sha256())
+                    },
+                    AllowedScopes = { "api1" }  //可以访问的api范围
+                }
+            };
+		
+	配置 IdentityServer：
+		Startup => ConfigureServices方法
+		 var builder = services.AddIdentityServer()
+                .AddDeveloperSigningCredential()	// 此方式仅适用于没有证书的开发环境
+                .AddInMemoryApiScopes(Config.ApiScopes)
+                .AddInMemoryClients(Config.Clients);
+		
+	启动 IdentityServer：访问 https://localhost:5001/.well-known/openid-configuration 则应该看到所谓的发现文档 其中包含 获取令牌、获取用户信息等终结点
+		
+	创建一个 WebAPI 项目
+		新建 IdentityController控制器
+			新建方法
+				[HttpGet]
+				public IActionResult Get()
+				{
+					return new JsonResult(from c in User.Claims select new { c.Type, c.Value });
+				}
+		
+		添加Nuget依赖项
+			dotnet add .\\src\\api\\Api.csproj package Microsoft.AspNetCore.Authentication.JwtBearer
+		
+		配置Startup中间件
+			ConfigureServices 方法：
+				services.AddAuthentication("Bearer")	// 将身份验证服务添加到DI并配置Bearer为默认方案。
+				.AddJwtBearer("Bearer", options =>
+				{
+					options.Authority = "http://localhost:5001";		// 验证服务器
+
+					options.TokenValidationParameters = new TokenValidationParameters	// 令牌验证方式
+					{
+						ValidateAudience = false
+					};
+				});
+				
+				要验证用户的token中必须含有区域或其他声明
+				services.AddAuthorization(options =>
+				{
+					options.AddPolicy("ApiScope", policy =>		// 添加新的政策
+					{
+						policy.RequireAuthenticatedUser();			// 必须验证用户
+						policy.RequireClaim("scope", "api1");	// 必须含有scope声明 且 值为 api1
+					});
+				});
+				该方式需要在 config 中配置 
+					 app.UseEndpoints(endpoints =>
+					{
+						endpoints.MapControllers().RequireAuthorization("ApiScope"); ;
+					});
+			
+			Configure 方法：
+				 app.UseAuthentication();	// 将身份验证中间件添加到管道中，以便对主机的每次调用都将自动执行身份验证。
+				 app.UseAuthorization(); //	添加了授权中间件，以确保匿名客户端无法访问我们的API端点。
+			
+	创建一个客户端 来访问 WebApi项目
+		使用控制台应用程序
+			var client = new HttpClient();
+			var disco = await client.GetDiscoveryDocumentAsync("https://localhost:5001");
+			// GetDiscoveryDocumentAsync 方法为 IdentityModel NUGET包中扩展的 该方法为获取目标 IDS4 的 JSON格式的发现文档
+			if (disco.IsError)
+            {
+                Console.WriteLine(disco.Error);
+            }
+			// 调用 请求客户端token方法 参数为一个客户端凭证的令牌请求
+            var tokenResponse = await client.RequestClientCredentialsTokenAsync(new ClientCredentialsTokenRequest
+            {
+                Address = disco.TokenEndpoint,	// 请求的地址 通过 disco.TokenEndpoint 可以获取到 获取token的终结点
+
+                ClientId = "client",	// 效验的客户端ID
+                ClientSecret = "这里填写加密的密码，像这样，巴拉巴拉，什么的也不是不可以，其实，我就是加密密码", // 效验的客户端密码
+                Scope = "api1"	// 要访问的 api 范围 如果IDS4服务 没有为该客户提供该范围 会报错
+            });
+            if (tokenResponse.IsError)
+            {
+                Console.WriteLine(tokenResponse.Error);
+            }
+			// 给 httpclient 设置 Token 
+			client.SetBearerToken(tokenResponse.AccessToken);
+			// 请求 identity 控制器
+            var response = await client.GetAsync("http://localhost:6001/identity");
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine(response.StatusCode);
+            }
+            else
+            {
+				// 异步读取成 字符串
+                var content = await response.Content.ReadAsStringAsync();
+				// 将内容 转换成 JArray 形式输出 其中包含 scope、iss、exp、nbf、client_id 当然 这只是默认情况下包含的
+                Console.WriteLine(JArray.Parse(content));
+            }
+	
+	基本上都是这么个逻辑 接下来咱们跟着 文档走
+	
+3.启动
+	IdentityServer是中间件和服务的组合 所有配置都在您的启动类中完成
+	配置服务：
+		ConfigureServices 方法中：
+			var builder = services.AddIdentityServer();  // 通过 AddIdentityServer 将服务添加到 DI 系统
+				其中 AddIdentityServer 方法中需传递一个 Action<IdentityServerOptions> 的委托 
+					例：传入以下委托
+						(option)=>{
+							option.能点出来什么 还得看官方文档 太多了 就不一一写了 你右键翻译过来叫做 终点/发现 的东西都是属性 取消翻译 option 点一下试试
+							参考文档：https://identityserver4.readthedocs.io/en/latest/reference/options.html#refoptions
+						}
+			也还可以继续用 builder 来添加更多服务
+				AddSigningCredential 生产时的秘钥
+				AddDeveloperSigningCredential 开发时的秘钥
+				AddValidationKey 添加内部秘钥
+				AddInMemoryClients	添加基于内存的客户端数组
+				AddInMemoryIdentityResources 添加基于的身份资源数组
+				AddInMemoryApiScopes 添加基于内存的范围数组
+				AddInMemoryApiResources 添加基于内存的Api资源数组
+				AddTestUsers 添加基于内存的用户数组
+				更多的方法或者 想要缓存基于数据库的客户端数组 请参考：https://identityserver4.readthedocs.io/en/latest/topics/startup.html
+			
+		Configure 方法中：app.UseIdentityServer();
+	
+4.定义资源
+	OpenID Connect/OAuth 令牌服务的最终工作是控制对资源的访问
+	IdentityServer中的两种基本资源类型是
+		IdentityResources(身份资源)：代表有关用户的声明，例如用户ID，显示名称，电子邮件地址等
+			身份资源是可以声明 scope 参数中含有的项的数组 大白话来说就是配置所有的用户声明列表 对于客户端再进行单独配置
+			我们可以在代码中 声明
+				public static IEnumerable<IdentityResource> IdentityResources =>
+				new IdentityResource[]
+				{
+					new IdentityResources.OpenId(), 
+					new IdentityResources.Profile(),
+					// 上面两项都是默认的标准范围 咱么来声明一个自定义的
+					new IdentityResource(
+						name: "photo",
+						userClaims: new[] { "personalphoto" },
+						displayName: "你的头像")
+				};
+			
+			只声明这个可不行 我们在 client 中也加入这个 photo 的范围 让 IDS4 服务器知道 该客户端需要这么个身份权限
+				AllowedScopes = new List<string>
+				{
+					// ...
+					"photo"
+				},
+			那么这时候再尝试从客户端登录 他会报错 没错 他就是会报错(Invalid scope 无效的范围) 为什么呢 咱们看一下
+			原来在客户端对接 IDS4 服务器时也是要配置客户端想要什么权限的 那么默认 OIDC 的权限有两项 ["openid","profile"]
+				services.AddAuthentication(options =>
+				{
+					options.DefaultScheme = "Cookies";
+					options.DefaultChallengeScheme = "oidc";
+				})
+				.AddCookie("Cookies")
+				.AddOpenIdConnect("oidc", options =>
+				{
+					//尝试打断点查看一下 options.Scope 会发现有两项权限 即 openid、profile
+					//而 Scope 只能 Get 不能 Set 这就很让人摸不清头脑
+					//我们可以查看 Scope 的类型 是ICollection<string> 那么咱们通过集合的方式调用它
+					option.Scope.Add("photo");//加上咱们想要的头像
+					// 有一点要注意了 Scope 列表必须和 IDS 服务器上的一样 多一个不行 少一个也不行
+					// ...
+				}
+			这时候再运行 你会发现 虽然咱们设置了客户端的 profile 权限 那么返回的用户声明 还是不对 
+			并没有 所谓的（name, family_name, given_name, middle_name, nickname, preferred_username, 
+			profile, picture, website, gender, birthdate, zoneinfo, locale, and updated_at）这些节点中的任何一个
+			
+			这时候我们就需要设置客户端的配置了
+			AddOpenIdConnect 中：
+				options.GetClaimsFromUserInfoEndpoint = true; //通过配置此项获取服务端给咱们授权的所有用户声明
+			
+			再运行 发现 profile 的相关声明都出来了 但是咱们定义的 photo 还是没有
+			这是因为咱们定义的这个 photo 并不是标准声明 也就是 客户端这边读取 UserInfo 时并不认识 需要再配置客户端的 声明类型映射
+			AddOpenIdConnect 中：
+				options.ClaimActions.MapUniqueJsonKey("photo", "photo");; //通过配置此项获取自定义的用户声明
+		
+		ApiScopes(Api范围)：该范围仅被定义为客户端请求的访问范围，在更复杂的系统中，通常会引入资源的概念。例如，这可能是物理或逻辑API
+			让我们建立三个逻辑操作的Api范围 read write delete
+				public static IEnumerable<ApiScope> ApiScopes =>
+				new ApiScope[]
+				{
+					new ApiScope(name: "read",   displayName: "Read your data."), //还有第三个参数 该参数为 userClaims 是一个 请求该 api 时必须携带的用户声明
+					new ApiScope(name: "write",  displayName: "Write your data."),
+					new ApiScope(name: "delete", displayName: "Delete your data.")
+				};
+			
+			然后，您可以将范围分配给各种客户端
+				var webViewer = new Client
+				{
+					ClientId = "web_viewer",
+					AllowedScopes = { "openid", "profile", "read" }
+				};
+				var mobileApp = new Client
+				{
+					ClientId = "mobile_app",
+					AllowedScopes = { "openid", "profile", "read", "write", "delete" }
+				}
+			返回的访问令牌为
+				{
+					"typ": "at+jwt"
+				}.
+				{
+					"client_id": "mobile_app",
+					"scope": "read write delete"
+				}
+			
+			带参数的 Api 范围：如果您想要让用户传递带参数的 Api 范围,通过参数动态分配权限,那么进行以下配置 当然 这一切的先决条件是你在使用 TestUser 或者 数据库形式的 User
+				先声明一个范围：
+					new ApiScope("AccessLevel","权限等级")
+				
+				咱们再为 Client 配置这个范围：
+					AllowedScopes = {
+						...
+						"AccessLevel"
+					}
+				
+				很明显 这样我们在请求 token 时要传递
+					scope："AccessLevel ..."
+				那么参数怎么加 我们可以通过自定义分隔符来添加这个参数
+				我这里通过 : 号来分割参数和范围名称 那么这个范围就变成了
+					scope："AccessLevel:参数 ..."
+				那么我们还需要创建一个类来解析这个 带参范围
+				public class ParameterizedScopeParser : DefaultScopeParser // 需要继承默认的范围解析器
+					public override void ParseScopeValue(ParseScopeContext scopeContext) // 重写范围解析方法
+						var scopeValue = scopeContext.RawValue; //获取当前的范围值 有多少范围该方法将执行多少次
+						if(scopeValue.indexOf("AccessLevel:")>=0){
+							var parts = scopeValue.Split(":", StringSplitOptions.RemoveEmptyEntries); // 通过 : 分割 并删除内容为空的数组项
+							if(parts.Length == 2){ // 如果是该范围并且带有一个参数的
+								scopeContext.SetParsedValues("AccessLevel", parts[1]);
+							}else{
+								scopeContext.SetError("没有参数");
+							}
+						}else if(scopeValue != "AccessLevel"){	// 这个不是需要解析的 范围
+							base.ParseScopeValue(scopeContext); // 不做处理交给 基类 处理
+						}else{
+							scopeContext.SetIgnore(); // 如果这个范围等于 AccessLevel 没有参数也没有特定的分隔符 那么忽略他
+						}
+				
+				我们通过继承 IProfileService 接口的类 或直接继承 IProfileService 接口来实现对用户 Claims 的控制
+					继承 IProfileService 的类：TestUserProfileService DefaultProfileService
+					我们来用 直接继承 IProfileService 接口的形式来控制用户 Claims
+						public class HostProfileService : IProfileService
+						{
+							// 创建令牌时将使用它
+							public Task GetProfileDataAsync(ProfileDataRequestContext context)
+							{
+								var AccessLevel = context.RequestedResources.ParsedScopes.FirstOrDefault(x => x.ParsedName == "AccessLevel");
+								if (AccessLevel?.ParsedParameter != null)
+								{
+									context.IssuedClaims.Add(new Claim("Access", AccessLevel.ParsedParameter));
+								}
+							}
+							// 验证用户的时候使用它
+							public Task IsActiveAsync(IsActiveContext context)
+							{
+								var user = Users.FindBySubjectId(context.Subject.GetSubjectId());
+								context.IsActive = user?.IsActive == true; // 该项 IsActive 为 False 时 授权将失败 因为标为 False 时 用户被禁用
+								return Task.CompletedTask;
+							}
+						}
+				
+		ApiResources(API资源)：代表客户端想要访问的功能。通常都是Api，也可以是消息队列或类似的终结点
+			Api资源的存在就是为了 当 ApiScopes 太多的时候 通过模块为 ApiScopes 分组的
+			public static IEnumerable<ApiResource> ApiResources =>
+				new ApiResource[] {
+					new ApiResource("ProductApi","产品Api"){ Scopes = {"read","write","delete" } }
+				};
+			客户再请求 read 的时候 aud(颁发者)将是 ProductApi
+5.定义客户
+
+暂时弃坑 阅读不通顺
+
 *.踩到的坑
 	谷歌浏览器登录无法跳转问题以及使用混合验证模式出现关联失败问题：
 		因为谷歌5.1开始新增了一个 SamSite 属性 用来防止 CSRF 攻击和用户追踪。因为新增的属性导致 IDS4 认证有问题,无法使用 http 协议的客户端接入 IDS4
 		
-		解决方案：https://community.abp.io/articles/patch-for-chrome-login-issue-identityserver4-samesite-cookie-problem-weypwp3n IDS4端和MVC端都要设置
+		解决方案：https://www.cnblogs.com/wjx-blog/p/13674394.html IDS4端和MVC端都要设置
 	
 	IDS4 接入外部程序 无效的重定向URI 问题：
-		解决方案： 在 Config 文件中配置 Client 时 RedirectUris 属性必须含有一项 http://localhost:5001/signin-oidc 但是当实际跳转时 该项优先级最低
+		解决方案： 在 Config 文件中配置 Client 时 RedirectUris 属性必须是 client 的地址 例：Client 终结点为 http://localhost:4633/ 那么这个重定向地址为 http://localhost:4633/signin-oidc
 	
 	使用 Microsoft.AspNetCore.Authentication.JwtBearer 做验证的时候报错
 		解决方案：在 ConfigureServices 方法下配置 IdentityModelEventSource.ShowPII = true;

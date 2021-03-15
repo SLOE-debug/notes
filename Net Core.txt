@@ -1,58 +1,206 @@
 1.Startup类
 	理论：Startup 类可以用来定义请求处理管道和配置应用程序需要的服务
 
-	Startup 类必须是公开的，且必须包含以下两个方法：
+	Startup 类包含以下两个方法：
 		ConfigureServices：方法用于定义应用程序所需要的服务，例如 ASP.NET Core MVC 、 Entity Framework Core 和 Identity 等等
 		
-		Configure：用于定义请求管道中的中间件
+		Configure：用于定义请求管道中 中间件 的执行顺序
+	
+	不使用 Startup 类的情况下 配置 Configure
+		Host.CreateDefaultBuilder(args)
+			.ConfigureAppConfiguration((hostingContext, config) =>
+            {
+            })
+			.ConfigureWebHostDefaults(webBuilder =>
+            {
+				webBuilder
+				.ConfigureServices(services =>
+                {})
+				.Configure(app =>
+                {})
+			})
+			
+		多次使用 ConfigureServices 方法会依次追加 Services
+		多次使用 Configure 方法会替代
 		
-2.中间件
-	中间件：1号中间件运行之后等待2号中间件运行,2号等待3号,直到遇到短路中间件时,2号等待3号运行完成之后,依次向上原路返回
-	
-	Run方法：
-		app.Run() 方法允许我们传入另一个方法，我们可以用它来处理每一个单独的响应。Run() 方法不经常见，它是调用中间件的终端
-		在 app.Run() 方法中注册的中间件永远不会有机会调用另一个中间件，它只会接收请求，然后必须产生某种响应
-		app.Run() 方法中注册的中间件还可以访问 Response，例如使用 Response 对象返回一个字符串
-		如果在 app.Run() 方法之后注册另一个中间件，那么注册的那个中间件永远不会被调用，因为 Run() 方法是注册中间件的 终端，在它之后，永远不会调用下一个中间件
-	
-	每个应用默认都会使用 context.Response.WriteAsync：
-		app.Run(async (context) =>
-		{
-			await context.Response.WriteAsync("Hello World!");	--中间件
-		});
+	IStartupFilter：
+		用途：想要在中间件管道开头或者结尾 配置中间件 并且无需显示调用 UseXXX 那么就用此方法扩展 Startup
 		
-    UseDeveloperExceptionPage：
-		他不做任何响应,只关心后面的中间件是否出现异常,如果出现异常那么将抛出错误信息以及位置,
-		如果将他注释掉,那么将抛出服务器500错误
-	
-	UseStaticFiles：
-		除非我们覆盖选项并传递一些不同的配置参数，否则静态文件中间件执行的操作是针对给定的请求查看请求路径
-		然后将此请求路径与文件系统以及文件系统上的内容进行比较
-	
-	UseDefaultFiles：
-		指定默认起始页,要特别注意顺序, UseDefaultFiles 必须在 UseStaticFiles 之前,否则会提示出错
-		他会根据这些名字查找默认文件 [index.html、index.htm、default.html、default.htm] ,不区分大小写
-		如果没有找到上述文件,那么不好意思404错误
-	
-	UseFileServer：
-		该中间件是对 UseStaticFiles 和 UseDefaultFiles 的封装,因为同时使用 UseStaticFiles 和 UseDefaultFiles ,很容易搞混
-		只使用该中间件的结果和 UseStaticFiles、UseDefaultFiles 两个混合起来用是一样的
-	
-	UseMvcWithDefaultRoute：
-		MVC路由中间件,他给了我们一个默认的路由规则,允许我们访问 HomeController
-		该形式会调用UseMvc,通过硬编码设定默认路由,
-		格式：{controller=Home}/{action=Index}/{id?}
-		那么这个路由格式是写死的,如果想要设置固定格式路由,那么请使用 UseMvc();
+		Startup过滤器 他就像是一个 抽离出来的 Configure 方法 可以通过他扩展 Startup
+		// 声明 AppendHelloWorldStartupFilter
+		public class RequestSetOptionsStartupFilter : IStartupFilter
+			// 重写 Configure 方法
+			public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+			// 该方法 传入了一个 Action<IApplicationBuilder> 也需要返回一个 Action<IApplicationBuilder> 咱们返回一个 lambda 表达式
+				return builder => {
+					builder.UseMiddleware<RequestSetOptionsMiddleware>();
+					next(builder);
+				}
 		
-	UseMvc:
-		该中间件需要传入一个委托,可以自己写一个方法
-		private void ConfigureRoute(IRouteBuilder routeBuilder)
-		{
-            //Home/Index 
-            routeBuilder.MapRoute("Default", "{controller}/{action}/{id?}");
+		// 声明一个自定义中间件
+		public class RequestSetOptionsMiddleware
+			private readonly RequestDelegate _next;
+			public RequestSetOptionsMiddleware(RequestDelegate next)	// 构造函数传入 next 委托 用于 next(HttpContext) 进入下一个中间件
+			{
+				_next = next;
+			}
+			// 实现 Invoke 方法 HttpContext 会通过该方法(或者是 InvokeAsync )进入自定义的中间件
+			public async Task Invoke(HttpContext httpContext)
+			{
+				var option = httpContext.Request.Query["option"];
+				if (!string.IsNullOrWhiteSpace(option))
+				{
+					httpContext.Items["option"] = option;
+				}
+				await _next(httpContext);
+			}
+		
+		在 Program 类中
+			Host.CreateDefaultBuilder(args)		想要在开始时注册的话 那么就在调用 CreateDefaultBuilder 方法后 就调用 ConfigureServices 注册扩展
+			.XXX()
+			.ConfigureServices(services =>
+			{
+				services.AddTransient<IStartupFilter, RequestSetOptionsStartupFilter>();
+			})
+	
+	基于环境运行不同的 Configure 和 ConfigureServices
+		Configure 和 ConfigureServices 支持 Configure<EnvironmentName> 和 Configure<EnvironmentName>Services
+		launchSettings.json 配置：
+			... 省略部分代码
+			"environmentVariables": {
+				"ASPNETCORE_ENVIRONMENT": "Test"
+			}
+		
+        public void ConfigureTestServices(IServiceCollection services)
+        {
+            Console.WriteLine("Test:");
+            services.AddControllers();
         }
-		在方法中可以配置路由,然后调用中间件 UseMvc(ConfigureRoute) 注册路由
+		public void ConfigureTest(IApplicationBuilder app, IWebHostEnvironment env) { ... }
 		
+		public void ConfigureServices(IServiceCollection services) { ... }
+		public void Configure(IApplicationBuilder app, IWebHostEnvironment env) { ... }
+	
+2.依赖注入：
+	在 ConfigureServices 中注册的服务 都可以在 Configure 中注入
+		在 ConfigureServices 中注册：
+			services.AddDbContext<TestNetCoreDbContext>(...);
+			注： EFCore 一般生成周期都是以范围注册 可以设置重载 ServiceLifetime.Singleton 改为单例
+			
+		在 Configure 中注入：
+			public void Configure(IApplicationBuilder app, IWebHostEnvironment env, TestNetCoreDbContext context)
+			{
+				context.XXXX();
+			}
+
+	也可以在 控制器 中注入
+		接口文件(用于抽象依赖类)
+			public interface IMyDependency
+				void WriteMessage(string message);
+		
+		实现类
+			public class MyDependency : IMyDependency
+				public void WriteMessage(string message){ ... }
+		
+		在 ConfigureServices 中注册：
+			services.AddScoped<IMyDependency, MyDependency>(); // 注册单个生存周期的服务
+			
+		控制器注入：
+			public XXXController(ILogger<WeatherForecastController> logger, IMyDependency Dependency)
+	
+	服务注册多个实例时：
+		services.AddScoped<IMyDependency, MyDependency>();
+		services.AddScoped<IMyDependency, MyDependency2>();
+		
+		按照顺序后者实例会覆盖前者实例
+		
+		中间件构造函数解析
+			public RequestSetOptionsMiddleware(RequestDelegate next, IMyDependency Dependency, IEnumerable<IMyDependency> Dependencies)
+			前者单个的 IMyDependency 解析出来的实例时 MyDependency
+			后者 IEnumerable<T> 解析出来的是所有依赖于 IMyDependency 注册的实例
+
+	服务生存期：
+		瞬态服务(Transient)：基于函数的服务 不同函数间使用的不是同一个服务
+	
+		范围服务(Scoped)：基于请求的服务 不同的请求使用的不是同一个服务
+			要在中间件中使用范围内服务,将范围服务注入到 中间件的 Invoke 或 InvokeAsync 中,使用构造函数注入会引发异常,因为它强制使范围内服务的行为与单一实例类似
+			注解：简单来说,就是方法才是基于范围的 而通过构造函数注入 那么将变成类中公用的 那么该范围服务想和单例没什么区别了
+		
+		单例服务(Singleton)：基于应用的服务 全应用使用一个服务
+	
+	脱离服务容器创建的服务：
+		services.AddSingleton(new MyDependency());
+		注：
+			服务实例不是由服务容器创建的。
+			框架不会自动释放服务。
+			开发人员负责释放服务。
+	
+	服务注入行为：
+		IServiceProvider：原本的DI容器,用于构造函数注入使用
+		ActivatorUtilities：一个通过容器创建实例的帮助类,创建未在容器中注册的对象,与一些框架特性一起使用
+			例：在 中间件 中使用
+			Invoke方法：
+				var Dependency = (IMyDependency)ActivatorUtilities.CreateInstance(httpContext.RequestServices, typeof(MyDependency));
+				Dependency.WriteMessage();
+				
+			但我们通常不这样使用 在迫不得已的情况下 可以选择这种方法
+			
+		注：无论是使用哪种行为 要解析服务的类 都必须含有一个 所有参数都可以通过DI容器注入实现的 构造函数
+	
+2.中间件
+	中间件可以看成一个流水线 物品(Request) 进入中间件 在该中间件中可以判断是否可以进入下一个中间件 如果不可以进入 那么就将会退回去 当前物品(Request) 会变成另一个物品(Response) 按照来时的路线一次返回 反之 再次进入下一个中间件 进行以上操作
+	
+	框架中提供了尽可能简单的 单个请求委托 这种不包括管道的操作 调用单个匿名函数以响应每个 HTTP 请求 
+	Run 委托不会收到 next 参数。 第一个 Run 委托始终为终端，用于终止管道。 Run 是一种约定 即短路中间件
+		app.Run(async context =>
+        {
+            await context.Response.WriteAsync("Hello, World!");
+        });
+	
+	使用 Use 将多个请求委托连接在一起
+		app.Use(async (context, next) =>
+        {
+			// 进入下一个中间件前做的操作
+            await next.Invoke();
+			// 当 Response 回退到当前中间件时做的操作,HasStarted 是一个有用的提示，指示是否已发送标头或已写入正文
+			// httpContext.Response.HasStarted 为true,切记不要对 Response 进行修改, 请考虑在进入下一个中间件前做修改
+        });
+	
+		注：当委托不将请求传递给下一个委托时，它被称为“让请求管道短路”
+	
+	对中间件管道进行分支
+		Map方式匹配到的 路径端 例：map1 map2 会从 HttpRequest.Path 删除 追加到 HttpRequest.PathBase
+		
+		如果请求路径以给定路径开头,则执行分支：
+			HandleMapTest1(IApplicationBuilder app)
+				 app.Run(委托...)
+				 
+			HandleMapTest2(IApplicationBuilder app)
+				 app.Run(委托...)
+				 
+			Configure方法：
+				app.Map("/map1", HandleMapTest1);
+				app.Map("/map2", HandleMapTest2);
+			
+		Map 支持嵌套,例如：
+			app.Map("/level1", level1App => {
+				level1App.Map("/level2a", level2AApp => {
+					// "/level1/level2a" processing
+				});
+				level1App.Map("/level2b", level2BApp => {
+					// "/level1/level2b" processing
+				});
+			});
+		
+		Map 也还可以匹配多个路径段：app.Map("/map1/seg1",方法)
+		
+		MapWhen 支持按照条件来分支 app.MapWhen(context=>context.Request.Query["Name"] = "张三",方法)
+		
+		UseWhen 支持按条件来分支 但与 MapWhen 不同的是 他不发生短路和包含终端中间件 会再返回主管道中继续执行
+
+3.主机
+	
+
 3.静态文件
 	wwwroot：如果没有额外的配置,那么该文件夹将是应用程序中唯一可以存放静态文件的位置
 	
@@ -189,7 +337,7 @@
         [Route("[action]")]
         public string Country()
         {
-            return "中国"; 
+            return "mlbz"; 
         }
     }
 	

@@ -1,0 +1,45 @@
+Net Core丢弃：
+	Run方法：
+		app.Run() 方法允许我们传入另一个方法，我们可以用它来处理每一个单独的响应。Run() 方法不经常见，它是调用中间件的终端
+		在 app.Run() 方法中注册的中间件永远不会有机会调用另一个中间件，它只会接收请求，然后必须产生某种响应
+		app.Run() 方法中注册的中间件还可以访问 Response，例如使用 Response 对象返回一个字符串
+		如果在 app.Run() 方法之后注册另一个中间件，那么注册的那个中间件永远不会被调用，因为 Run() 方法是注册中间件的 终端，在它之后，永远不会调用下一个中间件
+	
+	每个应用默认都会使用 context.Response.WriteAsync：
+		app.Run(async (context) =>
+		{
+			await context.Response.WriteAsync("Hello World!");	--中间件
+		});
+		
+    UseDeveloperExceptionPage：
+		他不做任何响应,只关心后面的中间件是否出现异常,如果出现异常那么将抛出错误信息以及位置,
+		如果将他注释掉,那么将抛出服务器500错误
+	
+	UseStaticFiles：
+		除非我们覆盖选项并传递一些不同的配置参数，否则静态文件中间件执行的操作是针对给定的请求查看请求路径
+		然后将此请求路径与文件系统以及文件系统上的内容进行比较
+	
+	UseDefaultFiles：
+		指定默认起始页,要特别注意顺序, UseDefaultFiles 必须在 UseStaticFiles 之前,否则会提示出错
+		他会根据这些名字查找默认文件 [index.html、index.htm、default.html、default.htm] ,不区分大小写
+		如果没有找到上述文件,那么不好意思404错误
+	
+	UseFileServer：
+		该中间件是对 UseStaticFiles 和 UseDefaultFiles 的封装,因为同时使用 UseStaticFiles 和 UseDefaultFiles ,很容易搞混
+		只使用该中间件的结果和 UseStaticFiles、UseDefaultFiles 两个混合起来用是一样的
+	
+	UseMvcWithDefaultRoute：
+		MVC路由中间件,他给了我们一个默认的路由规则,允许我们访问 HomeController
+		该形式会调用UseMvc,通过硬编码设定默认路由,
+		格式：{controller=Home}/{action=Index}/{id?}
+		那么这个路由格式是写死的,如果想要设置固定格式路由,那么请使用 UseMvc();
+		
+	UseMvc:
+		该中间件需要传入一个委托,可以自己写一个方法
+		private void ConfigureRoute(IRouteBuilder routeBuilder)
+		{
+            //Home/Index 
+            routeBuilder.MapRoute("Default", "{controller}/{action}/{id?}");
+        }
+		在方法中可以配置路由,然后调用中间件 UseMvc(ConfigureRoute) 注册路由
+		
