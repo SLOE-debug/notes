@@ -145,7 +145,7 @@
 				
 			但我们通常不这样使用 在迫不得已的情况下 可以选择这种方法
 			
-		注：无论是使用哪种行为 要解析服务的类 都必须含有一个 所有参数都可以通过DI容器注入实现的 构造函数
+		注：无论是使用哪种行为 要解析服务的类 都必须只能有一个 所有参数都可以通过DI容器注入实现的 构造函数
 	
 2.中间件
 	中间件可以看成一个流水线 物品(Request) 进入中间件 在该中间件中可以判断是否可以进入下一个中间件 如果不可以进入 那么就将会退回去 当前物品(Request) 会变成另一个物品(Response) 按照来时的路线一次返回 反之 再次进入下一个中间件 进行以上操作
@@ -196,11 +196,328 @@
 		
 		MapWhen 支持按照条件来分支 app.MapWhen(context=>context.Request.Query["Name"] = "张三",方法)
 		
-		UseWhen 支持按条件来分支 但与 MapWhen 不同的是 他不发生短路和包含终端中间件 会再返回主管道中继续执行
+		UseWhen 支持按条件来分支 但与 MapWhen 不同的是 他不发生短路并不能包含终端中间件 他需要再返回主管道中继续执行
 
 3.主机
+	Program=>Main 方法中调用的 CreateHostBuilder 方法
+		如果有调用 ConfigureWebHostDefaults 方法那么会创建一个Http的工作负载 反之将会创建一个非Http的工作负载
+		
+		非Http工作负载：
+		Host.CreateDefaultBuilder(args)
+            .ConfigureServices((hostContext, services) =>
+            {
+               services.AddHostedService<Worker>();
+            });
 	
+	框架提供的服务：
+		这三个服务都是可以在 Startup 构造中注入的
+		IHostApplicationLifetime：以前被称为 IApplicationLifetime,该接口用于通知应用程序生存期事件 
+			提供以下属性：
+				ApplicationStarted	// 应用程序开始时执行的事件
+				ApplicationStopped	// 应用程序结束中执行的事件
+				ApplicationStopping	// 应用程序结束后执行的事件
+			
+			咱们可以选择在 Configure 中注入 IHostApplicationLifetime 服务 配置应用程序的生命周期事件
+			Configure(..., IHostApplicationLifetime lifetime){
+				// 其他事件同理
+				lifetime.ApplicationStarted.Register(() =>
+				{
+					Console.WriteLine("程序已运行");
+				});
+			}
+			
+		IHostLifetime：实现控制主机何时启动和停止
+			
+		IHostEnvironment：用于获取环境信息 ApplicationName EnvironmentName ContentRootPath
+	
+	适用于 Web 应用的主机配置：https://docs.microsoft.com/zh-cn/aspnet/core/fundamentals/host/generic-host?view=aspnetcore-5.0#settings-for-web-apps
+		关于 承载服务、主机启动、错误详情页、HTTPS、URL、WebRoot 配置
+	
+	在 CreateWebHostBuilder 方法下使用 命令行Config
+		var config = new ConfigurationBuilder()
+			.XXX()
+            .AddCommandLine(args)
+            .Build();
+		return Host.CreateDefaultBuilder(args)
+			.ConfigureWebHostDefaults(webBuilder =>
+			{
+				webBuilder.UseUrls(config["MyUrl"]);
+			})
+	
+	使用非组织方式运行 WebHost 主机
+		using (var host = WebHost.Start("http://localhost:8080",router => router
+			.MapGet("hello/{name}", (req, res, data) => 
+				res.WriteAsync($"Hello, {data.Values["name"]}!"))
+			.MapGet("buenosdias/{name}", (req, res, data) => 
+				res.WriteAsync($"Buenos dias, {data.Values["name"]}!"))
+			.MapGet("throw/{message?}", (req, res, data) => 
+				throw new Exception((string)data.Values["message"] ?? "Uh oh!"))
+			.MapGet("{greeting}/{name}", (req, res, data) => 
+				res.WriteAsync($"{data.Values["greeting"]}, {data.Values["name"]}!"))
+			.MapGet("", (req, res, data) => res.WriteAsync("Hello, World!"))))
+		{
+			Console.WriteLine("Use Ctrl-C to shutdown the host...");
+			host.WaitForShutdown();
+		}
 
+4.配置
+	使用选项模式绑定分层配置数据
+		实体类：
+			public class Test
+			{
+				public readonly string ConfigName = "Test";
+				public string UserName { get; set; }
+				public string UserPass { get; set; }
+			}
+		同样也可以绑定数组结构
+		
+		绑定方式：
+			第一种：
+				Configuration.GetSection(TestConfig.ConfigName).Bind(TestConfig);
+				Console.WriteLine(TestConfig.UserName);
+				Console.WriteLine(TestConfig.UserPass);
+			
+			第二种：
+				var TestConfig = Configuration.GetSection("Test").Get<Test>();
+				...
+		
+		appsettings.json
+			"Test": {
+				"UserName": "zs",
+				"UserPass": "123"
+			}
+		
+	将选项注入到DI中
+		services.Configure<Test>(Configuration.GetSection("Test"));
+		
+		服务解析：
+			public XXXController(IOptions<Test> options)
+			{
+				_options = options.Value; // Value 是 Test实例
+			}
+
+	命令行参数的交换映射(可以理解是缩写键)
+		交换键必须使用 - 或 -- 开头
+		交换映射字典不得包含重复键值
+		
+		交换映射字典：
+			var switchMappings = new Dictionary<string, string>()
+			{
+				{ "-s", "setingName" },
+				{ "-u", "UserName" },
+				{ "--p", "PassWord" },
+			};
+			
+		主机构建时：
+			Host.XXX().ConfigureAppConfiguration((hostingContext, config) =>
+            {
+                config.AddCommandLine(args, switchMappings);
+            })
+	
+	Key-per-file配置提供程序：
+		使用目录的文件作为配置键值对,该键是文件名,该值包含文件的内容
+		
+		Host主机构建时：
+		Host.XXX().ConfigureAppConfiguration((hostingContext, config) =>
+		{
+			var path = Path.Combine(
+				Directory.GetCurrentDirectory(), "path/to/files");
+			config.AddKeyPerFile(directoryPath: path, optional: true);
+		})
+		
+		取值时：Configuration[文件名] 例：文件名为 Logging__LogLevel__System 时 那么键为 Logging:LogLevel:System
+	
+	基于内存集合配置键值对
+		var Dict = new Dictionary<string, string>
+        {
+           {"MyKey", "Dictionary MyKey Value"},
+           {"Position:Title", "Dictionary_Title"},
+           {"Position:Name", "Dictionary_Name" },
+           {"Logging:LogLevel:Default", "Warning"}
+        };
+		Host.XXX()
+		.ConfigureAppConfiguration((hostingContext, config) =>
+		{
+			config.AddInMemoryCollection(Dict);
+		})
+
+	关于配置文件的值转换问题：Configuration.GetValue<int>("NumberKey", 99); // 如果配置文件 找不到NumberKey 那么将使用99为默认值返回
+
+	GetSection、GetChildren 和 Exists
+		GetSection 会返回具有指定子节键的配置子节 
+			var config = Configuration.GetSection("Test");
+			Console.WriteLine(config["UserName"]);
+			Console.WriteLine(config["UserPass"]);
+		
+		GetChildren 会返回指定键的所有子节点
+			var config = Configuration.GetSection("Test").GetChildren();
+			foreach (var subSection in children)
+		
+		Exists 判断取到的值存不存在
+			Config.GetSection("section2").Exists();
+	
+	基于 EF 数据库的配置
+		// 设置配置项源
+		class EFConfigurationSource : IConfigurationSource
+			readonly Action<DbContextOptionsBuilder> OptionsAction;
+			// 通过构造函数传递一个委托进来 用来设置 DbContext 的 Options
+			EFConfigurationSource(Action<DbContextOptionsBuilder> _OptionsAction)
+				OptionsAction = _OptionsAction;
+			// 必须实现的接口方法
+			IConfigurationProvider Build(IConfigurationBuilder builder)
+				return new EFConfigurationProvider(OptionsAction);
+		
+		// 设置配置项提供者
+		class EFConfigurationProvider : ConfigurationProvider
+			readonly Action<DbContextOptionsBuilder> OptionsAction;
+			// 同配置项源一样
+			EFConfigurationProvider(Action<DbContextOptionsBuilder> _OptionsAction)
+				OptionsAction = _OptionsAction;
+			// 重写 提供者 加载方法
+			override void Load()
+				// 初始化一个 TestNetCoreDbContext 类型的 DbContextOptions 器
+				var EfConfigbuilder = new DbContextOptionsBuilder<TestNetCoreDbContext>();
+				// 然后执行 委托传入 数据库上下文选项(DbContextOptions)
+				OptionsAction(EfConfigbuilder);
+				// 此时执行完委托 EfConfigbuilder.Options 就是应用 SqlServer 数据库了 可以直接传入 TestNetCoreDbContext 构造函数中 db 实例将会是链接 指定的数据库的 数据库上下文
+				using (var db = new TestNetCoreDbContext(EfConfigbuilder.Options))
+				{
+					db.Database.Migrate();
+					Data = db.AppConfigs.ToDictionary(c => c.Key, c => c.Value);	// Data 为 父级 ConfigurationProvider 的属性 直接赋值即可
+				}
+		
+		// 配置 Host 主机 ConfigureAppConfiguration 方法 让其加载自定义配置项
+			Host.XXX()
+				.ConfigureAppConfiguration((configBuilder) =>
+                {
+                    var config = configBuilder.Build();
+					// 初始化 EF 配置项源 并传入委托 设置其应用 SqlServer 数据库
+                    configBuilder.Add(new EFConfigurationSource(option =>		
+                    {
+                        option.UseSqlServer(config["Data:DefaultConnection:ConnectionString"]);
+                    }));
+                })
+	
+	Razor Pages 中访问配置：
+		非绑定实体类模式：
+			@using Microsoft.Extensions.Configuration
+			@inject IConfiguration Configuration
+			
+			Configuration value for 'MyKey': @Configuration["MyKey"]
+		
+		绑定实体类模式：
+			@using Microsoft.Extensions.Options
+			@inject IOptions<Test> options
+			
+			<p><b>UserName:</b> @options.Value.UserName</p>
+			<p><b>UserPass:</b> @options.Value.UserPass</p>
+
+5.选项
+	IOptions<TOptions>：
+		注测为单一实例且可以注入到任何服务生存周期
+		应用启动后无法重载配置
+		无法实现热加载
+	
+	IOptionsSnapshot<TOptions>：
+		注册为范围实例，因此无法注入到单一实例服务
+		应用启动后可重载配置
+		可实现热加载
+		可支持命名选项
+	
+	IOptionsMonitor<TOptions>：
+		注册为单一实例且可以注入到任何服务生存期
+		可重载配置
+		更改通知(即文件或Option被更改时触发的方法)
+		可以让某个选项失效
+	
+	IOptionsMonitor 和 IOptionsSnapshot 之间的区别：
+		IOptionsMonitor 是一种单一示例服务，可随时检索当前选项值
+		IOptionsSnapshot 是一种作用域服务 只在服务解析时才能获取配置值 具有短暂性和作用域的依赖性
+	
+	当多个配置节点绑定到同一属性时：
+		// Json文件：
+		"TopItem": {
+			"Month": {
+			  "Name": "Green Widget",
+			  "Model": "GW46"
+			},
+			"Year": {
+			  "Name": "Orange Gadget",
+			  "Model": "OG35"
+			}
+		  }
+	
+		// 实体类
+		class TopItemSettings
+			const string Month = "Month"
+			const string Year = "Year"
+			prop string Name
+			prop string Model
+		
+		// DI 注入选项
+		services.Configure<TopItemSettings>(TopItemSettings.Month, Configuration.GetSection("TopItem:Month"));
+		services.Configure<TopItemSettings>(TopItemSettings.Year, Configuration.GetSection("TopItem:Year"));
+		
+		构造函数解析：
+			XXXController(IOptionsSnapshot<TopItemSettings> namedOptionsAccessor)	// 只有 IOptionsSnapshot 和 IOptionsMonitor 支持 Get 方法 普通的就别想了
+				Console.WriteLine(namedOptionsAccessor.Get(TopItemSettings.Year).Name);
+
+	使用 DI 服务配置选项
+		services.AddOptions<Test>("TestName").Configure<Service1,Service2,Service3,Service4,Service5>(	// Configure方法支持最多五个服务来配置选项
+			(t,s1,s2,s3,s4,s5)=>{
+				t.UserName = GetName(s1,s2,s3,s4,s5)  // 假设有 GetName 方法用来获取这五个服务的类名拼接在一起
+			}
+		)
+		
+		构造函数解析：
+			XXXController(IOptionsSnapshot<Test> test) // 如果 AddOptions 时没有传递 name 参数 那么可以直接用 IOptions<Test> 来解析
+				Console.WriteLine(test.Get("TestName").UserName);
+
+	选项验证：
+		// 调用 ValidateDataAnnotations 方法进行验证
+		services.AddOptions<Test>().Bind/Configure().ValidateDataAnnotations();
+		
+		// 实体类
+		public class Test
+		{
+			public readonly string ConfigName = "Test";
+			public string UserName { get; set; }
+			public string UserPass { get; set; }
+			// 采用 DataAnnotations 命名空间下的类来做验证 ValidateDataAnnotations 方法只支持此命名空间的验证类
+			// 该验证表示 Age 不能大于9 并且 不能小于0
+			[Range(0, 9, ErrorMessage = "Value for {0} must be between {1} and {2}.")]
+			public int Age { get; set; }
+		}
+		
+		当试图去取相应的值的时候会触发验证
+			test.Get("TestName").XXX
+		
+		使用委托应用更复杂的验证规则：
+			services.AddOptions<Test>().Bind/Configure().Validate(config=>{
+				return true|false;
+			},"Error Info")
+	
+	通过实现接口 IValidateOptions<TOptions> 来实现更复杂的验证：
+		class MyConfigValidation : IValidateOptions<Test>
+			MyConfigOptions _config;
+			// 构造函数
+			MyConfigValidation(IConfiguration config)
+				_config = config.GetSection("Test").Get<Test>();
+			
+			ValidateOptionsResult Validate(string name, MyConfigOptions options)
+				return ValidateOptionsResult.Success; | return ValidateOptionsResult.Fail("Error Info");
+		
+		services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions
+                              <Test>, MyConfigValidation>());
+	
+	在 Configure 后进行 后期配置：
+		services.PostConfigure<Test>(t =>
+		{
+			t.UserName = "zs";
+		});
+	
+	同样 AddOptions 的选项也可以在 Startup.Configure 中注入
+	
 3.静态文件
 	wwwroot：如果没有额外的配置,那么该文件夹将是应用程序中唯一可以存放静态文件的位置
 	
