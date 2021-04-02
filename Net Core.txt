@@ -518,6 +518,331 @@
 	
 	同样 AddOptions 的选项也可以在 Startup.Configure 中注入
 	
+6.安全
+	软件常见漏洞：
+		跨站点脚本(XXS)攻击：该方式为直接在表单中输入 Script 的链接以在网页中添加脚本的方式 或 URL 或 HTML标签中
+			解决方案：避免将不守信的数据动态加载成 HTML 节点 如果非要加载 那么全部将其编码 常见的编码器有 HtmlEncoder、 JavaScriptEncoder 和 UrlEncoder
+		打开重定向攻击：在需要单点登录的站点中,都会用到 returnUrl 而在传输 returnUrl 途中 被恶意应用替换成了其他的 Url 然后用户登录完跳转到恶意应用,再从恶意应用跳转到原应用 完成对用户令牌的窃取
+			解决方案：验证返回的 returnUrl 是不是本站点的 Url 如果不是,直接作废
+	
+7.gRPC
+	优点：
+		现代高性能轻量级 RPC 框架。
+		协定优先 API 开发，默认使用协议缓冲区，允许与语言无关的实现。
+		可用于多种语言的工具，以生成强类型服务器和客户端。
+		支持客户端、服务器和双向流式处理调用。
+		使用 Protobuf 二进制序列化减少对网络的使用。
+	
+	适用于：
+		效率至关重要的轻量级微服务。
+		需要多种语言用于开发的 Polyglot 系统。
+		需要处理流式处理请求或响应的点对点实时服务。
+		
+	gRPC 使用协定优先方法进行 API 开发
+	
+	*.proto文件：
+		文件内容包含：
+			gRPC 服务的定义。
+			在客户端与服务器之间发送的消息。
+		
+		proto 语言指南：
+			proto2语法的：https://developers.google.cn/protocol-buffers/docs/proto
+			proto3语法的：https://developers.google.cn/protocol-buffers/docs/proto3
+			C# *.proto文件的语法：https://docs.microsoft.com/zh-cn/aspnet/core/grpc/protobuf?view=aspnetcore-5.0#scalar-value-types
+		
+		解析文件内容(文件名：greet.proto)：
+			syntax = "proto3";	--Protobuf 语法
+			
+			option csharp_namespace = "GrpcGreeter";	-- 服务命名空间 需 using GrpcGreeter 才可使用 Greeter 服务
+			
+			package greet;	-- 所属的包 在其他 *.proto文件中导入时使用
+			
+			import "google/protobuf/wrappers.proto";	-- 导入 谷歌的 wrappers.proto 包
+			
+			service Greeter { -- 定义服务 其中包含 gRPC 的四种方法类型 生成的抽象类将为 Greeter.GreeterBase
+			  // 一次性的
+			  rpc SayHello (HelloRequest) returns (HelloReply);
+
+			  // 服务器流式响应
+			  rpc StreamingFromServer (ExampleRequest) returns (stream ExampleResponse);
+
+			  // 客户端流式请求
+			  rpc StreamingFromClient (stream ExampleRequest) returns (ExampleResponse);
+
+			  // 双向的 流式响应及请求
+			  rpc StreamingBothWays (stream ExampleRequest) returns (stream ExampleResponse);
+			}
+			
+			定义消息,定义消息的概念类似于定义一个 .Net 类
+			每个字段都有一个唯一的数字编号 而不是默认值 因为序列化一个编号要比序列化一个字段名要快得多
+			命名字段名时 xxx_xxx 会被生成为 Xxx_Xxx
+			message ExampleRequest {
+				int32 pageIndex = 1;	-- 数字类型的 pageIndex 字段
+				int32 pageSize = 2;		-- 同上
+				bool isDescending = 3;	-- 布尔类型的 isDescending 字段
+				google.protobuf.Int32Value age = 4; -- 从 wrappers 包中引入的 可为空的数字类型
+				string frist_name = 5;	--字符串类型的 frist_name 字段
+			}
+			
+			以上消息会生成 差不多这样的 Net 类
+			public class ExampleRequest{
+				prop int PageIndex
+				prop int PageSize
+				prop int IsDescending
+				prop int? Age
+				prop string FristName
+			}
+	
+	服务端：
+		通过引入 NuGet Grpc.Tools 包及将 *.proto 文件添加到 <Protobuf> 项目组
+			<ItemGroup>
+			  <Protobuf Include="Protos\greet.proto"  GrpcServices="Server" />	--GrpcServices项：*.proto 文件在服务端就写 Server 在客户端就写 Client
+			</ItemGroup>
+		
+		右键项目生成 将自动生成用于服务、客户端和消息的 .NET 类型
+		
+		比如 greet.proto 文件 将会生成一个 叫做 Greeter.GreeterBase 的抽象类
+			abstract partial class GreeterBase
+				SayHello
+				...等 proto文件中 定义的方法
+				
+			但该抽象类的所有方法都会抛出一个 RpcException 的异常
+			
+			我们需要写一个 类来 重写它这些抛异常的方法
+			class GreeterService : Greeter.GreeterBase
+				SayHello
+					return Task.FromResult(new HelloReply{});
+		
+		至此服务端重写方法后,在 Startup 类中的 ConfigureServices 方法里注册 Grpc 服务并配置 MapGrpcService 后 服务端可正常启动
+			ConfigureServices
+				services.AddGrpc();
+			
+			Configure
+				endpoints.MapGrpcService<GreeterService>();
+		
+	客户端：
+		将 *.proto 文件放在 Protos 文件夹下
+		跟服务端一样 引入 Grpc.Tools 包 将 *.proto 文件添加到 <Protibuf> 项目组	GrpcServices 需要变成 Client
+		
+		右键项目生成
+		
+		引入一下包：
+			Google.Protobuf
+			Grpc.Net.Client
+			Grpc.Tools
+		
+		using var channel = GrpcChannel.ForAddress("https://localhost:5001");	--通过一个长连接地址生成管道
+		var client = new Greeter.GreeterClient(channel);	-- 通过管道新建 Greeter 客户端
+		await client.SayHelloAsync(new HelloRequest { Name = "张三" })	-- 调用服务方法
+		
+	服务端流式响应：
+		服务端：
+			StreamingFromServer 方法：
+				for (int i = 0; i < 5; i++)
+				{
+					await responseStream.WriteAsync(new ExampleResponse { });	-- 返回数据
+					await Task.Delay(TimeSpan.FromSeconds(1));	-- 等待一秒
+				}
+				
+				有时候设计出来的服务端的流式响应是永久的 需要客户端依赖项来停止 比如
+				while (!context.CancellationToken.IsCancellationRequested)
+				{
+					await ...
+				}
+		
+		客户端：
+			var stream = client.StreamingFromServer(new ExampleRequest { PageSize = 10, PageIndex = 2 });
+			var source = new CancellationTokenSource();
+			
+			我们传入一个 Token 当 i 大于等于 2 时 设置该 Token 为取消状态 停止服务端继续返回流式响应
+			当 Token 为取消状态时 MoveNext 方法会抛出异常 最好使用一个 try Catch 来捕获并处理异常
+			
+			while (await stream.ResponseStream.MoveNext(new CancellationToken(source.Token)))
+			{
+				if (i >= 2) source.Cancel();
+				Console.WriteLine("结果：" + stream.ResponseStream.Current.MessageRes);
+				i++;
+			}
+	
+	客户端流式请求：
+		服务端：
+			StreamingFromClient 方法：
+				while (await requestStream.MoveNext())	-- 客户端没有通知说发送完毕,将一直止步于此获取消息
+				{
+					Console.WriteLine(requestStream.Current.Age);
+				}
+				return new ExampleResponse { MessageRes = "成功！" };
+		
+		客户端：
+			using var callServer = client.StreamingFromClient();	-- 获得用于请求的 AsyncClientStreamingCall 对象
+            int age = 0;
+            var random = new Random();
+            while (age < 30)
+            {
+                age = random.Next(1, 50);
+                await callServer.RequestStream.WriteAsync(new ExampleRequest { Age = age });	-- 使用 callServer 中的请求流发送请求
+            }
+            await callServer.RequestStream.CompleteAsync();	-- 发送完毕时 通知服务端停止接受数据并返回结果
+            var res = await callServer;	-- 等待当前 AsyncClientStreamingCall 对象返回结果
+            Console.WriteLine(res.MessageRes);
+		
+	双向流：
+		服务端：
+			StreamingBothWays 方法：
+				await foreach (var message in requestStream.ReadAllAsync())	-- 接收消息 输出消息内容 并 返回消息
+				{
+					Console.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "：" + message.Age);
+					await responseStream.WriteAsync(new ExampleResponse { MessageRes = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "：成功！" });
+				}
+				
+				// 同时读取和发送消息
+				var readTask = Task.Run(async () =>	-- 创建一个线程来获取客户端发来的请求
+				{
+					await foreach (var message in requestStream.ReadAllAsync())		-- 接收消息并输出消息内容
+					{
+						Console.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "：" + message.Age);
+					}
+				});
+				while (!readTask.IsCompleted)	-- 如果一直在接收消息 那就一直返回消息
+				{
+					await responseStream.WriteAsync(new ExampleResponse { MessageRes = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "：成功！" });
+					await Task.Delay(1, context.CancellationToken);	-- 暂停一秒
+				}
+		
+		客户端：
+			using var call = client.StreamingBothWays();
+            var readTask = Task.Run(async () =>	-- 创建一个异步线程来读取服务端返回回来的响应
+            {
+                await foreach (var message in call.ResponseStream.ReadAllAsync())		-- 从流读取器中读取所有的数据
+                {
+                    Console.WriteLine(message.MessageRes);
+                }
+            });
+			
+			int age = 0;
+            var random = new Random();
+            while (age < 30)
+            {
+                age = random.Next(1, 50);
+                await call.RequestStream.WriteAsync(new ExampleRequest { Age = age });	-- 发送请求
+            }
+            await call.RequestStream.CompleteAsync();
+            await readTask;	-- 等待服务端的所有数据全部读取完毕
+	
+	访问 请求/响应 标头
+		服务端：context.RequestHeaders.GetValue("user-agent");
+		客户端：await call.ResponseHeadersAsync;
+	
+	访问 gRPC 尾部
+		通过 GetTrailers() 方法来访问
+		
+		一次性的/客户端流式调用必须等待 ResponseAsync 才能调用 GetTrailers 方法
+			using var call = client.SayHelloAsync(new HelloRequest { Name = "张三" })
+			var response = await call.ResponseAsync;
+			var trailers = call.GetTrailers();
+		
+		服务器和双向流式调用必须等到出现响应流 才能调用 GetTrailers 方法
+			await foreach (var response in call.ResponseStream.ReadAllAsync())
+			{
+			
+			}
+			var trailers = call.GetTrailers();
+		
+		通过 try catch 来捕获 RpcException 异常 也可以获取到 gRPC 尾部
+			try{
+			
+			}catch(RpcException ex){
+				Console.WriteLine(ex.Trailers)
+			}
+	
+	传递截止时间：
+		通过在调用的 服务方法 中传递 deadline 参数 来指定该方法的调用时间
+		如果超出了调用时间 那么客户端将立即中止基础的 HTTP 请求并引发 DeadlineExceeded 错误
+		服务端 将中止正在执行的 HTTP 请求，并引发 ServerCallContext.CancellationToken 尽管终止了 HTTP 请求 但是方法还是继续执行的 直到方法执行成功,应当将取消令牌一起传递给异步方法 使其随调用一同被取消
+		
+		取消客户端调用有两种方式 取消令牌 和 调用 call.Dispose 这两者都会引发异常
+	
+	
+	例子：
+		.proto：
+			gRPC 使用协定优先方法进行 API 开发
+			在 *.proto 文件中定义服务和消息
+			*.proto 包含：
+				gRPC 服务的定义。
+				在客户端与服务器之间发送的消息。
+			
+			syntax = "proto3";
+			
+			import "google/protobuf/wrappers.proto";
+			
+			service Greeter {
+			  rpc SayHello (HelloRequest) returns (HelloReply);
+			  rpc StreamingFromServer (ExampleRequest) returns (stream ExampleResponse);		-- 指定 返回的响应为流式响应
+			}
+			
+			message HelloRequest {	-- 每个 message 定义的 Protobuf 消息都是用于传输的消息对象 而定义该对象的概念类似于定义一个 .Net 类
+			  string name = 1;			-- 字符串类型的 name
+			  int32 id = 2;				-- 数字类型的 id
+			  string first_name = 3; 	-- 字符串类型的 FirstName 因为按照这种(xxx_xxx)的约定来定义的话 那么最终会生成 Xxx_Xxx 的样子
+			  google.protobuf.Int32Value age = 5;	--可为空的数字类型的 age 但需要先导入 wrappers.proto 到 .proto
+			  ... 每个字段都有一个唯一的编号 因为序列化一个编号要比序列化一个字段名要快得多
+			  ... 更多的字段类型请参照：
+			}
+
+			message HelloReply {
+			  string message = 1;
+			}
+		
+			通过在项目中包含 *.proto 文件，可以自动生成用于服务、客户端和消息的 .NET 类型
+				添加 Grpc.Tools 包
+				将 *.proto 文件添加到 <Protobuf> 项目组
+					<ItemGroup>
+					  <Protobuf Include="Protos\greet.proto" GrpcServices="Client" />	-- GrpcServices 的有效选项 Both（如果不存在，则为该默认值）Server(表示服务端的 proto) Client(表示客户端的 proto) None(表示为空)
+					</ItemGroup>
+					
+				接下来交给 Grpc.Tools 自动生成
+		
+		服务端：
+			服务端会根据 proto 生成 GreeterBase 抽象类 SayHello 方法默认是一个返回异常的接口 所以要搞一个类来继承他 
+			public class GreeterService : Greeter.GreeterBase
+				override Task<HelloReply> SayHello(HelloRequest request, ServerCallContext context)		--重写该方法
+				override async Task StreamingFromServer(ExampleRequest request, IServerStreamWriter<ExampleResponse> responseStream, ServerCallContext context)	--重写服务端流式响应方法
+			
+			Startup类：
+				app.UseEndpoints(endpoints =>
+				{
+					endpoints.MapGrpcService<GreeterService>();
+				})
+		
+		客户端：
+			创建一个放 *.proto 文件的文件夹 我这里创建 Protos
+			右键项目编辑项目文件 将 *.proto 文件添加进去
+				<ItemGroup>
+					<Protobuf Include="Protos\greet.proto" GrpcServices="Client" />	--GrpcServices 相关的有效值请参考以上所述
+				</ItemGroup>
+			添加一下包：
+				Google.Protobuf
+				Grpc.Net.Client
+				Grpc.Tools
+			
+			生成项目即可直接调用 Greeter
+				channel = GrpcChannel.ForAddress("https://localhost:5001"); -- 去连接一个长链接地址
+				client = new Greeter.GreeterClient(channel)	-- 通过通道获取客户端实例
+				var stream = client.StreamingFromServer(new ExampleRequest { PageSize = 10, PageIndex = 2 });	--咱们在这拿服务端流式响应来测试
+				IsContione = true;
+				i = 1;
+				try{
+					while(await stream.ResponseStream.MoveNext(new CancellationToken(!IsContione))){
+						if (i >= 2) IsContione = false;
+						Console.WriteLine("结果：" + stream.ResponseStream.Current.MessageRes);
+						i++;
+					}
+				}catch{
+				
+				}
+				
+				
+			
 3.静态文件
 	wwwroot：如果没有额外的配置,那么该文件夹将是应用程序中唯一可以存放静态文件的位置
 	

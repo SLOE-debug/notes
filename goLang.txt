@@ -1,3 +1,6 @@
+先决条件：
+	go modules 包代理：https://goproxy.io/zh/
+
 1.基础
 	代码：一行代码后没必要加分号
 	
@@ -9,7 +12,7 @@
 		1.从语言层面支持并发,实现简单
 		2.goroutine,轻量级线程,可实现大并发处理,高效利用多核
 		3.基于CPS并发模型(Communicationg Sequential Processes)实现
-		
+	
 	管道通信：吸收了管道通信机制,形成Go语言特有的管道channel,通过管道channel,可以形成不同的goroute之间的互相通讯
 
 	函数返回多个值：go函数支持返回多个值
@@ -40,8 +43,8 @@
 			var n1,n2,n3 int
 			var n1,name,n3 = 100,"tom",888
 			n1,name,n3:=100,"tom",888
-			
-			
+		
+		
 		全局变量定义：
 			var (
 				n1=100
@@ -62,10 +65,10 @@
 		基本类型：
 			bool、string(Go将string归类为基本类型)、int(int8、int16、int32、int64) uint(uint8、uint16、uint32、uint64、unintptr)
 			byte(uint8的别名)、rune(int32的别名,表示一个Unicode码点)、complex64、complex128
-			
+		
 		派生/复杂数据类型
 			指针(Pointer)、数组、结构体(struct,同class)、管道(Channel)、函数(也是一种类型)、切片(slice)、接口(interface)、map
-			
+		
 		int:
 			有符号
 			32系统占4个字节
@@ -75,7 +78,7 @@
 			int16	占用2字节	范围：-2(15次方)~2(15次方)-1
 			int32	占用4字节	范围：-2(31次方)~2(31次方)-1
 			int64	占用8字节	范围：-2(63次方)~2(63次方)-1
-			
+		
 		uint:
 			无符号
 			32系统占4个字节
@@ -91,7 +94,7 @@
 		byte：与uint8等价,要存储字符时选用byte
 		
 		float：尽量使用float64,因为其精度更高
-			
+		
 		类型转换：
 			go不支持隐式转换,必须显式转换,T(v)';go中可以数据类型小的转为数据类型大的,也可以反过来,但是结果会按溢出处理
 			基本类型和string的转换：
@@ -129,7 +132,7 @@
 		
 		2.fmt.Scanf("%s %d %f %t",&name,&age,&sag&isPass)：按指定格式输入
 								
-								
+
 2.指针
 	获取变量的地址：&,例：var num int = 10  fmt.println(&num)
 	
