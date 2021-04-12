@@ -731,7 +731,7 @@
 	
 	访问 请求/响应 标头
 		服务端：context.RequestHeaders.GetValue("user-agent");
-		客户端：await call.ResponseHeadersAsync;
+		客户端：(await call.ResponseHeadersAsync).GetValue("xxx");
 	
 	访问 gRPC 尾部
 		通过 GetTrailers() 方法来访问
@@ -762,7 +762,52 @@
 		
 		取消客户端调用有两种方式 取消令牌 和 调用 call.Dispose 这两者都会引发异常
 	
-	
+	gRPC 客户端工厂集成(即在MVC/Web Api中使用 gRPC)：
+		Startup
+			ConfigureServices
+				services.AddGrpcClient<Test.TestClient>(o =>
+				{
+					o.Address = new Uri("https://localhost:5001");
+				})
+				.ConfigurePrimaryHttpMessageHandler(() =>		// 配置处理程序
+				{
+					return new HttpClientHandler { UseCookies = false };
+				})
+				.AddInterceptor(() => new LoggingInterceptor())	// 配置侦听器
+				.ConfigureChannel(o =>							// 配置管道
+				{
+					o.Credentials = new CustomCredentials();
+				})
+				.EnableCallContextPropagation(					// 配置自动将截止时间和取消令牌传播到子调用
+					o => o.SuppressContextNotFoundErrors = true;// 如果想在调用上下文之外使用客户端 将此项配置为 true 否则将会提示你没有要传播的调用上下文
+				);
+		
+		构造函数解析 并 使用
+			XXX(Test.TestClient client)
+				client.SayHello(new HelloReq {})
+		
+	配置 gRPC 重试策略
+		var defaultMethodConfig = new MethodConfig // 新建方法配置
+		{
+			Names = { MethodName.Default },		// 此处使用方法名,指定哪些方法使用该策略,Default 为全部的方法
+			RetryPolicy = new RetryPolicy		// 新建策略
+			{
+				MaxAttempts = 5,	// 重试次数
+				InitialBackoff = TimeSpan.FromSeconds(1),	// 延迟多长时间重试,每次失败该值将乘以 BackoffMultiplier 以增加延迟时间
+				MaxBackoff = TimeSpan.FromSeconds(5),		// 延迟最长时间
+				BackoffMultiplier = 1.5,					// 被乘指数
+				RetryableStatusCodes = { StatusCode.Unavailable } // 请求状态码为指定项将重试
+			}
+		};
+		
+		当出现以下两种情况时 gRPC 将提交
+			客户端收到响应头
+			客户端传出消息 或 当客户端为流式处理时传出消息超出客户端最大缓冲区大小 视为已传出消息
+
+		当出现以下两种情况时 gRPC 将不会重试
+			服务器流式处理、双向流式处理,在已收到第一个消息后
+			客户端流式处理、双向流式处理,传出消息超出客户端的最大缓冲区大小时
+
 	例子：
 		.proto：
 			gRPC 使用协定优先方法进行 API 开发
