@@ -555,9 +555,10 @@
 			
 			option csharp_namespace = "GrpcGreeter";	-- 服务命名空间 需 using GrpcGreeter 才可使用 Greeter 服务
 			
-			package greet;	-- 所属的包 在其他 *.proto文件中导入时使用
+			package greet;	-- 所属的包 需要 using greet; 才可以使用 服务(service) 和 实体类
 			
 			import "google/protobuf/wrappers.proto";	-- 导入 谷歌的 wrappers.proto 包
+			-- import 其他包时 是按照 protoc 执行文件的相对路径来引入的 而VS项目中 相对于项目根目录 所以 我们导入时要 import "Protos/xxx.proto"
 			
 			service Greeter { -- 定义服务 其中包含 gRPC 的四种方法类型 生成的抽象类将为 Greeter.GreeterBase
 			  // 一次性的
@@ -808,6 +809,127 @@
 			服务器流式处理、双向流式处理,在已收到第一个消息后
 			客户端流式处理、双向流式处理,传出消息超出客户端的最大缓冲区大小时
 
+	gRPC 连网格式：
+		application/grpc：http/2 协议
+		application/grpc-web：gRPC-Web 修改 gRPC 协议,使其与 HTTP/1.1 兼容,在不支持Http/2 的浏览器应用和网络中均可使用 gRPC-Web ,不再支持：客户端流式和双向流式处理
+
+	JS 调用 gRPC：
+		首先需要拿到 .proto 文件
+		在此https://github.com/grpc/grpc-web/releases下载 protoc-gen-grpc-web 工具 甭管下载下来叫什么 都需要将名称改为这个
+		在此https://github.com/protocolbuffers/protobuf/releases下载 protoc 工具
+		运行 protoc -I=. XXX.proto --js_out=import_style=commonjs:. --grpc-web_out=import_style=commonjs,mode=grpcwebtext:.
+		.proto 和 protoc 以及 protoc-gen-grpc-web 需要在同一目录下
+		
+		运行完会生成 XXX_pb.js 和 XXX_grpc_web_pb.js 两个文件 前者为生成实体类 后者为生成 gRPC 客户端
+		
+		Net端：
+			引入 Grpc.AspNetCore.Web,使其支持 grpc-web 协议
+			在 UseRouting 和 UseEndpoints 之间 添加 grpc-web 中间件 app.UseGrpcWeb();
+			在 MapGrpcService 方法后添加 EnableGrpcWeb 方法 也可以 对 UseGrpcWeb 方法传参配置全部的 gRPC 服务都支持 grpc-web 协议
+			
+			app.UseGrpcWeb(new GrpcWebOptions { DefaultEnabled = true }); // 所有 gRPC 服务都将支持 grpc-web 协议
+			app.UseEndpoints(endpoints =>
+			{
+				endpoints.MapGrpcService<GreeterService>();
+			});
+		
+		编写 Client.js 文件：
+			const {HelloRequest, HelloReply} = require('./XXX_pb.js');
+			const {GreeterClient} = require('./XXX_grpc_web_pb.js');
+			var client = new GreeterClient('https://localhost:8080'); // 必须https才可访问
+			var request = new HelloRequest();
+			request.setName('World');
+			client.sayHello(request, {}, (err, response) => {
+			  console.log(response.getMessage());
+			});
+		
+		npm 安装以下包：
+			"@grpc/grpc-js"
+			"@grpc/proto-loader"
+			"async"
+			"google-protobuf"
+			"grpc-web"
+			"lodash"
+			"webpack"
+			"webpack-cli"
+		
+		执行命令：npx webpack client.js
+		
+		拿到 ./dist/main.js 文件 引入html文件 打开控制台即可查看请求结果
+	
+	更多(gRPC 服务器/客户端)配置：https://docs.microsoft.com/zh-cn/aspnet/core/grpc/configuration?view=aspnetcore-5.0
+
+	关于 gRPC 的性能：
+		管道：客户端创建了 GrpcChannel 后应继续复用该通道,而非再次创建,因为一个通道创建会经历以下过程
+			打开套接字
+			建立 TCP 连接
+			协商 TLS
+			启动 HTTP/2 连接
+			进行 gRPC 调用
+
+		流响应/请求并发：大多数服务器将限制设置为 100 个并发流,对于此问题,有以下解决方案
+			Net 5：引入 SocketsHttpHandler.EnableMultipleHttp2Connections 属性,设置为true时,则当达到并发流限制时,会创建额外的http/2链接
+				GrpcChannel.ForAddress("https://localhost", new GrpcChannelOptions
+				{
+					HttpHandler = new SocketsHttpHandler
+					{
+						EnableMultipleHttp2Connections = true,	// 是否额外创建http2链接
+					}
+				});
+			
+			Net 3.1：
+				1.Logger gRPC 服务可能具有高负载
+				2.使用 gRPC 通道池,每次调用 gRPC 随机取一个通道
+		
+		客户端负载均衡：
+		
+		保持活动 ping：保持活动可以在非调用期间保持Http2的链接,不断线,再次使用时可快速调用而不重新建立连接
+			var handler = new SocketsHttpHandler
+			{
+				PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan,
+				KeepAlivePingDelay = TimeSpan.FromSeconds(60),		// 每隔60秒Ping一下
+				KeepAlivePingTimeout = TimeSpan.FromSeconds(30),	// ping超时时间
+				EnableMultipleHttp2Connections = true				// 是否额外创建http2链接
+			};
+			GrpcChannel.ForAddress("https://localhost:5001", new GrpcChannelOptions
+			{
+				HttpHandler = handler
+			});
+		
+		流式处理：双向流式处理会比一次性调用更快
+			流式处理调用应用环境：
+				需要高吞吐量或低延迟
+				gRPC 和 HTTP/2 被标识为性能瓶颈
+				客户端的辅助程序使用 gRPC 服务发送或接收常规消息
+		
+		进程内通信：参考文档
+
+	如何同时拥有 gRPC 和 WebApi 形式的 gRPC 服务：
+		添加引用：Microsoft.AspNetCore.Grpc.HttpApi
+		服务注册：AddGrpcHttpApi 去掉原本的 AddGrpc 方法
+		将连接中的两个文件拷贝下来：https://github.com/aspnet/AspLabs/tree/c1e59cacf7b9606650d6ec38e54fa3a82377f360/src/GrpcHttpApi/sample/Proto/google/api
+		放在项目中
+		！！！！
+		
+		项目根目录/google/api/annotations.proto
+		项目根目录/google/api/http.proto
+		切记 这两个文件不要添加到 ItemGroup 组里 千万不要
+		
+		！！！！
+		修改 greet.proto 文件
+			import "google/api/annotations.proto";
+			rpc SayHello (HelloRequest) returns (HelloReply) {
+				option (google.api.http) = {
+				  get: "/v1/greeter/{name}"
+				};
+			}
+		
+		请求即可 https://地址/v1/greeter/world
+		返回结果：{ "message": "Hello a" }
+		
+		
+	在 gRPC 中使用WCF中的消息协定：请参见 protobuf-net.Grpc 文档：https://protobuf-net.github.io/protobuf-net.Grpc/gettingstarted
+	
 	例子：
 		.proto：
 			gRPC 使用协定优先方法进行 API 开发
