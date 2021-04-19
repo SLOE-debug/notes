@@ -881,7 +881,16 @@
 				1.Logger gRPC 服务可能具有高负载
 				2.使用 gRPC 通道池,每次调用 gRPC 随机取一个通道
 		
-		客户端负载均衡：
+		客户端负载均衡：将 gRPC 服务器的地址通过配置文件或者硬编码存储起来,每次客户端请求根据策略做负载均衡
+		
+		应用程序实现负载均衡：因为 gRPC 使用的是 http/2协议,那么一些基于 http/1.1 的负载均衡(此处称L4)程序将无法使用,我们需要的是基于 http/2 协议的负载均衡程序
+			基于 http/2 协议的负载均衡(L7)应用程序有
+			Envoy - 一种常用的开源代理。
+			Linkerd - Kubernetes 服务网格。
+			YARP:反向代理 - 用 .NET 编写的预览开源代理。
+			
+			L7代理的工作级别高于 L4（传输）代理,L7 代理了解 HTTP/2，并且能够在多个终结点之间的一个 HTTP/2 连接上将多路复用的 gRPC 调用分发给代理
+			使用代理比客户端负载均衡更简单，但会增加 gRPC 调用的额外延迟
 		
 		保持活动 ping：保持活动可以在非调用期间保持Http2的链接,不断线,再次使用时可快速调用而不重新建立连接
 			var handler = new SocketsHttpHandler
@@ -929,87 +938,9 @@
 		
 		
 	在 gRPC 中使用WCF中的消息协定：请参见 protobuf-net.Grpc 文档：https://protobuf-net.github.io/protobuf-net.Grpc/gettingstarted
-	
-	例子：
-		.proto：
-			gRPC 使用协定优先方法进行 API 开发
-			在 *.proto 文件中定义服务和消息
-			*.proto 包含：
-				gRPC 服务的定义。
-				在客户端与服务器之间发送的消息。
-			
-			syntax = "proto3";
-			
-			import "google/protobuf/wrappers.proto";
-			
-			service Greeter {
-			  rpc SayHello (HelloRequest) returns (HelloReply);
-			  rpc StreamingFromServer (ExampleRequest) returns (stream ExampleResponse);		-- 指定 返回的响应为流式响应
-			}
-			
-			message HelloRequest {	-- 每个 message 定义的 Protobuf 消息都是用于传输的消息对象 而定义该对象的概念类似于定义一个 .Net 类
-			  string name = 1;			-- 字符串类型的 name
-			  int32 id = 2;				-- 数字类型的 id
-			  string first_name = 3; 	-- 字符串类型的 FirstName 因为按照这种(xxx_xxx)的约定来定义的话 那么最终会生成 Xxx_Xxx 的样子
-			  google.protobuf.Int32Value age = 5;	--可为空的数字类型的 age 但需要先导入 wrappers.proto 到 .proto
-			  ... 每个字段都有一个唯一的编号 因为序列化一个编号要比序列化一个字段名要快得多
-			  ... 更多的字段类型请参照：
-			}
+				
+8.
 
-			message HelloReply {
-			  string message = 1;
-			}
-		
-			通过在项目中包含 *.proto 文件，可以自动生成用于服务、客户端和消息的 .NET 类型
-				添加 Grpc.Tools 包
-				将 *.proto 文件添加到 <Protobuf> 项目组
-					<ItemGroup>
-					  <Protobuf Include="Protos\greet.proto" GrpcServices="Client" />	-- GrpcServices 的有效选项 Both（如果不存在，则为该默认值）Server(表示服务端的 proto) Client(表示客户端的 proto) None(表示为空)
-					</ItemGroup>
-					
-				接下来交给 Grpc.Tools 自动生成
-		
-		服务端：
-			服务端会根据 proto 生成 GreeterBase 抽象类 SayHello 方法默认是一个返回异常的接口 所以要搞一个类来继承他 
-			public class GreeterService : Greeter.GreeterBase
-				override Task<HelloReply> SayHello(HelloRequest request, ServerCallContext context)		--重写该方法
-				override async Task StreamingFromServer(ExampleRequest request, IServerStreamWriter<ExampleResponse> responseStream, ServerCallContext context)	--重写服务端流式响应方法
-			
-			Startup类：
-				app.UseEndpoints(endpoints =>
-				{
-					endpoints.MapGrpcService<GreeterService>();
-				})
-		
-		客户端：
-			创建一个放 *.proto 文件的文件夹 我这里创建 Protos
-			右键项目编辑项目文件 将 *.proto 文件添加进去
-				<ItemGroup>
-					<Protobuf Include="Protos\greet.proto" GrpcServices="Client" />	--GrpcServices 相关的有效值请参考以上所述
-				</ItemGroup>
-			添加一下包：
-				Google.Protobuf
-				Grpc.Net.Client
-				Grpc.Tools
-			
-			生成项目即可直接调用 Greeter
-				channel = GrpcChannel.ForAddress("https://localhost:5001"); -- 去连接一个长链接地址
-				client = new Greeter.GreeterClient(channel)	-- 通过通道获取客户端实例
-				var stream = client.StreamingFromServer(new ExampleRequest { PageSize = 10, PageIndex = 2 });	--咱们在这拿服务端流式响应来测试
-				IsContione = true;
-				i = 1;
-				try{
-					while(await stream.ResponseStream.MoveNext(new CancellationToken(!IsContione))){
-						if (i >= 2) IsContione = false;
-						Console.WriteLine("结果：" + stream.ResponseStream.Current.MessageRes);
-						i++;
-					}
-				}catch{
-				
-				}
-				
-				
-			
 3.静态文件
 	wwwroot：如果没有额外的配置,那么该文件夹将是应用程序中唯一可以存放静态文件的位置
 	
