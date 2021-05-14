@@ -1,0 +1,116 @@
+C#：
+	1.简述数组，链表，哈希（HASH）的各自特点
+		性能优化、锁、算法笔记中有写
+		
+	2.String是一种什么类型的数据（引用类型？值类型？）
+	  判断一下如下代码？ String s1=s2=”12345”; s1=”23456”; 问：s2的值是多少，简述理由
+		s2还是12345，因为String是一个特殊的引用类型
+	
+	3.String和StringBuilder的区别是什么
+		String 类型因为不可变性，在存在大量拼接操作时会消耗资源加大系统开销，而StringBuilder是可变的
+	
+	4.编写一个带参数，带返回值的自定义事件
+		继承 EventArgs 来创建一个 事件参数类
+			public class TestEventArgs : EventArgs
+			{
+				public string Error { get; set; }
+				public int CurrentValue { get; set; }
+			}
+		
+		class Test{
+			public event EventHandler<TestEventArgs> TestEvent
+			TriggerEvent(){
+				TestEvent(this,new {CurrentValue = Count, Error = "错误信息！"})
+			}
+		}
+	
+	5.简述using关键字几种用法
+		作为指令 using 命名空间
+		作为语句 using(){} 在该块执行完之后释放内部的资源
+	
+	6.多服务器(分布式)如何生成全局唯一ID
+		1.数据库自增长
+			优点：简单、高性能、对分页排序有好处
+			缺点：难以扩展、迁移痛苦、分表分库麻烦、不同数据库实现不同
+		
+		2.GUID
+			优点：全球唯一
+			缺点：性能差、没有排序、存储空间大、传输量大、不可读
+		
+		3.SnowFlake雪花算法：百度
+		
+		4.Redis生成ID,N台Redis主机,每台主机设置不同的初始值,设置同一步长
+			步长为5
+			主机为五台
+			A：1,6,11,16,21
+			B：2,7,12,17,22
+			C：3,8,13,18,23
+			D：4,9,14,19,24
+			E：5,10,15,20,25
+			优点：不依赖数据库、且优于数据库
+			缺点：如果系统中没有Redis,还得引入新组件,Redis是单线程的容易造成阻塞,则会引发高并发
+		
+	7.简述socket通信建立和断开链接的过程
+		建立链接：
+			客户端向服务器发送一个SYN J
+			服务器向客户端响应一个SYN K，并对SYN J进行确认ACK J+1
+			客户端再向服务器发一个确认ACK K+1
+		
+		释放链接：
+			某个应用进程首先调用 close主动关闭连接，这时TCP发送一个FIN M；
+			另一端接收到FIN M之后，执行被动关闭，对这个FIN进行确认。它的接收也作为文件结束符传递给应用进程，因为FIN的接收意味着应用进程在相应的连接上再也接收不到额外数据；
+			一段时间之后，接收到文件结束符的应用进程调用 close关闭它的socket。这导致它的TCP也发送一个FIN N；
+			接收到这个FIN的源发送端TCP对它进行确认。
+				
+	8.在前端开发中，SPA代表什么意思？实现SPA的有哪些框架？用过哪些方式来优化页面组件
+		SPA：单页富应用程序,只有一张Web页面的应用,是加载单个HTML 页面并在用户与应用程序交互时动态更新该页面的Web应用程序
+		实现SPA的框架：VUE、React、Angular
+		优化页面组件：
+			组件方面：
+				组件加key
+				将可复用的代码单独拿出来
+				路由懒加载
+				
+			性能方面：
+				存储Dom引用,而不是每次都取
+				节流防抖
+				对象不用时需设置为 null 来取消引用,交给GC处理
+				可以使用for循环尽量不要用递归(递归会增加函数指针以及变量指针)
+				
+			网络方面：
+				支持https使用 caches 可缓存响应,ServiceWorker 对此功能封装比较好的有谷歌大佬的 WorkBox 3.0
+				http请求头：Cache-Control,Accept-Encoding：gzip、compress、deflate、br、identity、*
+				减少网络请求
+				将一些静态资源扔到第三方网站
+				如果是原生H5 将 css js 文件放在 body 最后加载,可减少网页白屏时间
+	
+	9.Javascript是否存在面向对象概念中的类？如果存在，如何定义？
+		ES5语法中没有：
+			定义：
+				function Person(name) {
+					this.name = name;
+					alert(this.name);
+				}
+				Person.proptotype.getName = function(){...}
+				
+		ES6语法中有：class Person{...}
+	
+	10.Asp.net Web Api是什么意思？用过哪些类似Asp.net Web Api的技术？
+		Asp.net Web Api：restful形式的服务
+		类似Asp.net Web Api的技术：Asp.Net Mvc 或 基于 Owin 的自定义服务
+	
+	11.public void test(int i)
+		{
+			Lock(this)
+			{
+			  if(i>0)
+				{
+				i--;
+				test(i);
+				}
+			}
+		}
+		当 i>10时会死锁嘛？简要说明理由
+			并不会死锁 i 是值类型,每次修改都是副本 并不会死锁
+		
+	

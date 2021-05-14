@@ -1,3 +1,10 @@
+数据库三大范式：
+	第一范式：确保表中每列的原子性（不可拆分）；
+
+	第二范式：确保表中每列与主键相关，而不能只与主键的某部分相关（主要针对联合主键），主键列与非主键列遵循完全函数依赖关系（完全依赖）；
+
+	第三范式：非主键列之间没有传递函数依赖关系（消除传递依赖）；
+
 1.基础
 	补充数据类型
 	
@@ -80,8 +87,6 @@
 			
 		2.区间子查询：Select * From Student Where GradeId in (Select GradeId From Grade Where GradeId > (Select GradeId From Grade Where GradeName = 'S1'))
 			语法详解：在这里我们用了三个查询语句,其中包括2个子查询语句,语句中的in原本为Select * From Student Where GradeId in (2,3),但是我们第一个子查询返回的GradeId不止一个值,所以用in括起来,第一个子查询查询的结果返回的就是括号中的2,3
-		
-		3.
 		
 	错误语法：
 		错误语句：Select * From Student Where GradeId = (Select GradeId From Grade Where GradeName = 'S1')
@@ -279,6 +284,8 @@
 		1.经常检索(Where)的列
 		2.不经常改变的列
 		3.数据差别大
+	
+	填充因子：填充因子是创建索引时指定整个填充数据空间所占的百分比,如果是90的话,那么10%的空间会保留作为以后添加数据时扩展的空间
 		
 14.存储过程
 	用处：与C#方法相同
